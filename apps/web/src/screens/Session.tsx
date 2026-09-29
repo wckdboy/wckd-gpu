@@ -68,7 +68,14 @@ export function SessionScreen() {
               Refresh
             </button>
           ) : (
-            <button type="button" className="btn" onClick={() => setPreview(sampleSession(app.draft.hours))}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                app.setError("");
+                setPreview(sampleSession(app.draft.hours));
+              }}
+            >
               Preview live layout
             </button>
           )}

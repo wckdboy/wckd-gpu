@@ -467,11 +467,6 @@ th {
   background: var(--elevated);
 }
 
-tr.locked {
-  background: #14201b;
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
 tr.recommended:not(.locked) {
   box-shadow: inset 2px 0 0 #1f5c40;
 }
@@ -483,6 +478,12 @@ tbody tr {
 
 tbody tr:hover {
   background: var(--elevated);
+}
+
+tbody tr.locked,
+tbody tr.locked:hover {
+  background: #1a3328;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .tier-secure {
