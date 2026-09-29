@@ -33,7 +33,7 @@ func TestHelpListsCommands(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"config", "offers", "start", "status", "stop", "sweeper"} {
+	for _, name := range []string{"config", "offers", "presets", "projects", "start", "status", "stop", "sweeper"} {
 		if !strings.Contains(buf.String(), name) {
 			t.Fatalf("help missing %s\n%s", name, buf.String())
 		}
@@ -41,6 +41,9 @@ func TestHelpListsCommands(t *testing.T) {
 	for _, args := range [][]string{
 		{"config", "check", "--help"},
 		{"offers", "--help"},
+		{"presets", "--help"},
+		{"projects", "--help"},
+		{"projects", "add", "--help"},
 		{"start", "--help"},
 		{"status", "--help"},
 		{"stop", "--help"},
@@ -225,6 +228,14 @@ spec:
 	if strings.Contains(check, secret) {
 		t.Fatal("config check printed the secret")
 	}
+	checkJSON := run(t, "config", "check", "--json")
+	var checkReport map[string]any
+	if err := json.Unmarshal([]byte(checkJSON), &checkReport); err != nil {
+		t.Fatalf("config json: %v\n%s", err, checkJSON)
+	}
+	if checkReport["ok"] != true || strings.Contains(checkJSON, secret) || strings.Contains(checkJSON, "test-key") {
+		t.Fatalf("config json leaked or failed:\n%s", checkJSON)
+	}
 
 	offers := run(t, "offers", "--preset", "comfyui-minimax-h3", "--hours", "1")
 	if !strings.Contains(offers, "runpod:community:NVIDIA GeForce RTX 4090") {
@@ -232,6 +243,31 @@ spec:
 	}
 	if !strings.Contains(offers, "score =") {
 		t.Fatalf("offers missing formula:\n%s", offers)
+	}
+	offersJSON := run(t, "offers", "--preset", "comfyui-minimax-h3", "--hours", "1", "--json")
+	var offerRows []map[string]any
+	if err := json.Unmarshal([]byte(offersJSON), &offerRows); err != nil {
+		t.Fatalf("offers json: %v\n%s", err, offersJSON)
+	}
+	if len(offerRows) == 0 || offerRows[0]["id"] != "runpod:community:NVIDIA GeForce RTX 4090" {
+		t.Fatalf("offers json:\n%s", offersJSON)
+	}
+	if strings.Contains(offersJSON, secret) {
+		t.Fatal("offers json printed the secret")
+	}
+
+	dry := run(t, "start", "--dry-run", "--json", "--hours", "1", "--project", "hailuo-tests", "--preset", "comfyui-minimax-h3")
+	if !strings.Contains(dry, `"dry_run": true`) || strings.Contains(dry, secret) {
+		t.Fatalf("dry-run:\n%s", dry)
+	}
+
+	presetsOut := run(t, "presets", "--json")
+	if !strings.Contains(presetsOut, `"id": "comfyui-minimax-h3"`) || strings.Contains(presetsOut, secret) {
+		t.Fatalf("presets:\n%s", presetsOut)
+	}
+	added := run(t, "projects", "add", "hailuo-tests", "--json")
+	if !strings.Contains(added, `"id": "hailuo-tests"`) || !strings.Contains(added, `"saved": true`) {
+		t.Fatalf("projects add:\n%s", added)
 	}
 
 	started := run(t, "start", "--hours", "1", "--project", "hailuo-tests", "--preset", "comfyui-minimax-h3", "--no-sweeper")
@@ -381,6 +417,26 @@ func TestConfigCheckAuthFailureDoesNotPrintKey(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "runpod: fail") {
 		t.Fatalf("output:\n%s", buf.String())
+	}
+
+	buf.Reset()
+	cmd = app.Command()
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"config", "check", "--json"})
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected json failure")
+	}
+	if strings.Contains(buf.String(), "visible-key-should-not-print") || strings.Contains(err.Error(), "visible-key-should-not-print") {
+		t.Fatalf("leaked key: %v\n%s", err, buf.String())
+	}
+	var report map[string]any
+	if jerr := json.Unmarshal(buf.Bytes(), &report); jerr != nil {
+		t.Fatalf("json: %v\n%s", jerr, buf.String())
+	}
+	if report["ok"] != false {
+		t.Fatalf("report %#v", report)
 	}
 }
 

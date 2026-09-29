@@ -2,7 +2,7 @@
 
 **Version:** 0.1  
 **Date:** 2026-09-29 (Europe/Copenhagen)  
-**Status:** P1 CLI implemented (see [MVP.md](MVP.md)). Control plane and clients are not started.  
+**Status:** P1 CLI is implemented (see [MVP.md](MVP.md)). The P3 client shell (installable PWA + Tauri 2 desktop) talks to that CLI. The control plane is not started.  
 **Owner:** WCKD / BLXMP
 
 ---
@@ -31,7 +31,7 @@ Renting cloud GPUs (RunPod, Vast, Lambda, …) for a few hours a day is cheaper 
 5. **Clean shutdown:** stop workload → flush uploads → terminate instance → record cost receipt.
 6. Fetch live offers from **multiple stable vendors**, score **price/performance** for the preset’s constraints, recommend a pick (user can override).
 7. Resume a project another day from S3 (download or hydrate on next boot).
-8. Clients on **Android, iOS, macOS, Linux, Windows**.
+8. Clients: an installable **PWA** and a **Tauri 2** desktop app on macOS, Linux, and Windows. Android and iOS store apps stay a later phase.
 
 ### 2.2 Must not (v1)
 
@@ -77,32 +77,30 @@ Renting cloud GPUs (RunPod, Vast, Lambda, …) for a few hours a day is cheaper 
 ## 4. System architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Clients (Flutter preferred)                                  │
-│  Android · iOS · macOS · Linux · Windows                       │
-│  — auth, projects, start/stop, live status, deep links        │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ HTTPS (REST + WebSocket)
-┌───────────────────────────▼─────────────────────────────────┐
-│  Control plane (always-on, small)                             │
-│  API · Scheduler · Offer broker · Session FSM · Secrets vault │
-└───────┬─────────────────┬─────────────────┬─────────────────┘
-        │                 │                 │
-        ▼                 ▼                 ▼
-   GPU vendors      S3-compatible      Observability
-   RunPod, Vast,    R2 / S3 / B2 /     logs, metrics,
-   Lambda, …        MinIO              cost ledger
-        │
-        ▼
-   Ephemeral GPU VM/pod
-   Docker preset + agent sidecar (rclone, heartbeat, drain)
+┌──────────────────────────────────────────────────────────────┐
+│  Clients                                                      │
+│  PWA (installable) · Tauri 2 desktop (macOS, Linux, Windows)  │
+│  ControlClient: CliBridge now · HttpBridge when the API exists│
+└───────────────┬────────────────────────────┬─────────────────┘
+                │ spawn `wckd` (desktop v0)  │ HTTPS (later)
+                ▼                            ▼
+         local wckd CLI              Control plane (P2, not built)
+                                     API · scheduler · offers · FSM
+                │                            │
+                └────────────┬───────────────┘
+                             ▼
+              GPU vendors · S3 · observability
+                             │
+                             ▼
+              Ephemeral GPU pod + sidecar
+              (rclone hydrate, heartbeat, drain)
 ```
 
 ### 4.1 Components
 
 | Component | Responsibility |
 |-----------|----------------|
-| **Client** | UX, local prefs, push notifications, never holds long-lived provider keys (optional BYOK advanced mode). |
+| **Client** | PWA + Tauri shell. v0 desktop spawns the local `wckd` CLI. The same UI will call the control plane through `HttpBridge`. It does not store provider or S3 secrets. |
 | **API** | Auth (OIDC / magic link), projects, presets, sessions CRUD, offer query. |
 | **Offer broker** | Normalize vendor SKUs → `Offer{vendor, sku, vram_gb, ram_gb, $/hr, region, reliability_tier}`. |
 | **Session FSM** | States: `quoted → provisioning → hydrating → running → draining → terminated | failed`. |
@@ -242,18 +240,31 @@ Runs beside the workload container (same pod or docker-compose):
 
 ## 8. Client architecture
 
-**Recommendation:** **Flutter** (one codebase, solid desktop + mobile). Alternative: Tauri (desktop) + Flutter or Kotlin Multiplatform mobile — more split.
+**Chosen path:** one Vite + React + TypeScript UI in `apps/web`, installed as a PWA and wrapped by Tauri 2 in `apps/desktop` (macOS, Linux, Windows). Screens are not duplicated. Mobile store apps are out of scope for this phase.
+
+The UI talks to a `ControlClient`:
+
+| Bridge | When |
+|--------|------|
+| `CliBridge` | Tauri. Spawns `wckd` (`config check`, `offers`, `presets`, `projects`, `start`, `status`, `stop`) and parses `--json`. |
+| `HttpBridge` | Browser / PWA, and the later control-plane swap. GPU calls are rejected until that API exists. Presets are bundled from `presets/*.yaml`. Project ids stay in local storage and are not secrets. |
+
+v0 is ahead of the control plane on purpose: the desktop app can run a session with the CLI that already exists. Dry-run (`wckd start --dry-run`) is the path that ranks a pick without creating a pod.
+
+Secrets stay in the CLI's `.env` or process environment. The client stores a binary path, an optional config path, and a working directory. It does not put provider or S3 keys in `localStorage`.
 
 Screens:
 
-1. Home — active session + quick Start
-2. Projects — list / create / S3 binding
-3. Presets — browse / pin favorites
-4. Offer sheet — ranked quotes
-5. Session live — timer, cost ticker, Open UI, Stop, Extend
-6. Settings — S3, vendor keys (via control plane), notifications
+1. Home — active session summary + primary Start
+2. Projects — list / create local project ids (`projects/<id>/` on S3)
+3. Presets — browse `presets/*.yaml`
+4. Offer sheet — ranked quotes and the estimate before start
+5. Session live — phase, countdown to the deadline, cost estimate, Open UI, Stop
+6. Settings — `wckd` path, env/config location, `wckd config check`
 
-Push: FCM/APNs for T−15 and failures.
+Stop asks for confirmation. A failed drain leaves the pod up; `--force` requires typing `DESTROY`.
+
+Push (FCM/APNs) waits on the mobile phase.
 
 ---
 
@@ -299,9 +310,9 @@ See [THREAT-MODEL.md](THREAT-MODEL.md). Highlights:
 |-------|-------------|
 | **P0 — Spec** | This repo docs (done). |
 | **P1 — MVP CLI** | `wckd session start\|stop` + RunPod + R2 + one preset (ComfyUI stub). |
-| **P2 — Control plane** | API + FSM + scheduler + secrets. |
-| **P3 — Desktop app** | Flutter Linux/macOS/Windows talking to API. |
-| **P4 — Mobile** | Android/iOS; push; deep links. |
+| **P2 — Control plane** | API + FSM + scheduler + secrets. Not started. `HttpBridge` is the client swap point. |
+| **P3 — Desktop / PWA** | Tauri 2 (macOS, Linux, Windows) plus an installable PWA. **Started early, before P2.** v0 uses `CliBridge` against the local `wckd` binary so the session UX can be used without the API. |
+| **P4 — Mobile** | Android/iOS store apps; push; deep links. |
 | **P5 — Multi-vendor** | Vast + scoring polish + failover. |
 | **P6 — Preset gallery** | H3, Wan2.2, vLLM open-weights, generic CUDA. |
 
@@ -320,7 +331,7 @@ Details: [MVP.md](MVP.md).
 
 ## 14. Open decisions
 
-1. Flutter vs Tauri+mobile split.
+1. **Resolved:** PWA + Tauri 2 for desktop and web. Mobile store apps remain P4. The old Flutter recommendation is retired.
 2. Managed control plane vs fully self-hosted binary for paranoid users.
 3. Whether EU-only offer filter is default for BLXMP.
 4. First preset: MiniMax H3 ComfyUI vs generic PyTorch.

@@ -4,7 +4,7 @@ One-button cloud GPU sessions for creative and agent workloads.
 
 Press start → pick a preset + hours → best price/perf on RunPod → provision → sync the project to S3-compatible storage → clean shutdown.
 
-**Status:** P1 CLI. Control plane and the Flutter client are not started. Scope and deferrals: [docs/MVP.md](docs/MVP.md).
+**Status:** P1 CLI, plus an early P3 client (installable PWA and Tauri 2 desktop) that shells out to that CLI. The control plane is not started. Scope and deferrals: [docs/MVP.md](docs/MVP.md).
 
 ## Why Go
 
@@ -65,11 +65,17 @@ An optional YAML file works too. Copy [wckd.yaml.example](wckd.yaml.example) to 
 
 ```bash
 wckd config check
+wckd config check --json          # no secrets in the JSON
 wckd offers --preset comfyui-minimax-h3 --hours 1
+wckd offers --preset comfyui-minimax-h3 --hours 1 --json
+wckd presets --json               # presets/*.yaml, no network
+wckd projects                     # local ids, plus ids seen on sessions
+wckd projects add hailuo-tests    # remembers the id; does not write S3
 wckd start --hours 1 --project hailuo-tests --preset comfyui-minimax-h3
-wckd status
-wckd stop
-wckd stop --force          # delete the pod even if drain did not finish
+wckd start --dry-run --hours 1 --project hailuo-tests --preset comfyui-minimax-h3
+wckd status --json
+wckd stop --json
+wckd stop --force                 # delete the pod even if drain did not finish
 ```
 
 `start` prints a session id (`sess_…`). State is stored in `~/.wckd` (or `WCKD_STATE_DIR`). `status` and `stop` use that session when you omit the id.
@@ -116,11 +122,35 @@ For hydrate and drain, build [sidecar/Dockerfile](sidecar/Dockerfile), push it, 
 
 Confirm the pod is gone in the RunPod console or with their API after `stop` prints `phase: terminated`.
 
+## Web and desktop
+
+One UI in [`apps/web`](apps/web) (Vite, React, TypeScript). It is an installable PWA (manifest + service worker for the shell). [`apps/desktop`](apps/desktop) is a Tauri 2 window around that same build for macOS, Linux, and Windows.
+
+```bash
+pnpm install
+pnpm test
+pnpm lint
+pnpm build          # apps/web → apps/web/dist
+pnpm dev            # Vite on http://127.0.0.1:1420
+pnpm --filter @wckd/desktop dev    # Tauri. Needs Rust 1.90+ and the platform webkit libraries.
+```
+
+The UI uses a `ControlClient`:
+
+- **CliBridge** (Tauri) runs `wckd` with `--json`. Settings are the binary path, an optional `--config` file, and the working directory that holds `.env`. The process environment is inherited, so exported keys work too.
+- **HttpBridge** (the PWA, and the later control plane) does not shell out. Presets come from the YAML bundled at build time. Project ids live in local storage. Start, status, stop, and config check show that the desktop app is required until the API exists.
+
+Nothing in the client stores a RunPod or S3 secret. Do not put keys in the settings screen.
+
+In the desktop app: Settings → Config check, then Offers → Rank offers. **Dry run** calls `wckd start --dry-run` and does not create a pod. **Start** does. Session shows the phase, the countdown to `deadline_at`, the catalog estimate, and Open UI (the proxy URL, opened in the system browser). Stop asks for confirmation. If the drain marker never arrives, the pod stays up; Force requires the typed word `DESTROY`.
+
+`start` still detaches `wckd sweeper` unless `WCKD_NO_SWEEPER=1`.
+
 ## Platforms (target)
 
-Android · iOS · macOS · Linux · Windows
+PWA · macOS · Linux · Windows now. Android and iOS store apps later.
 
-The P1 CLI runs on the machine that holds the API keys (Linux and macOS are what `make check` covers).
+The P1 CLI runs on the machine that holds the API keys (Linux and macOS are what `make check` covers). The Tauri shell is the same machine: it cannot see keys that are not in that environment.
 
 ## Owner
 
