@@ -61,6 +61,8 @@ perf_index values are labeled estimates, not live benchmarks.`,
 	root.AddCommand(
 		a.configCmd(),
 		a.offersCmd(),
+		a.presetsCmd(),
+		a.projectsCmd(),
 		a.startCmd(),
 		a.statusCmd(),
 		a.stopCmd(),

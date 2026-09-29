@@ -13,6 +13,9 @@ check: build test
 	./$(BIN) --help >/dev/null
 	./$(BIN) config check --help >/dev/null
 	./$(BIN) offers --help >/dev/null
+	./$(BIN) presets --help >/dev/null
+	./$(BIN) projects --help >/dev/null
+	./$(BIN) projects add --help >/dev/null
 	./$(BIN) start --help >/dev/null
 	./$(BIN) status --help >/dev/null
 	./$(BIN) stop --help >/dev/null

@@ -29,7 +29,8 @@ The CLI lives in `cli/` (Go module `github.com/wckdboy/wckd-gpu/cli`). Operator 
 - [ ] Preset HTTP healthcheck from the CLI (`ready` is the hydrate marker)
 - [ ] Quarantine hold with a capped extra bill — P1 leaves the pod running and fails the stop
 - [ ] Short-lived prefix-scoped S3 credentials (the user key is injected into the pod)
-- [ ] Network volumes, Vast, Lambda, Flutter, multi-user
+- [ ] Network volumes, Vast, Lambda, mobile store apps, multi-user
+- [ ] Control plane. The P3 PWA + Tauri shell is in `apps/web` and `apps/desktop` and talks to this CLI (`CliBridge`). `HttpBridge` waits on the API.
 - [ ] A published ComfyUI + MiniMax H3 image (the workload command is recorded; a missing binary holds the session open)
 
 ### Divergences from the spec
@@ -38,7 +39,7 @@ The CLI lives in `cli/` (Go module `github.com/wckdboy/wckd-gpu/cli`). Operator 
 - Phases follow the P1 brief (`pending`, `hydrating`, `ready`, `draining`, `terminated`) rather than `quoted → provisioning → running`. `running` in the architecture doc is `ready` here. `failed` is extra, for provision errors. `failed → draining` exists so a pod that was created can still be cleaned up.
 - Offer ranking uses the architecture formula, including a versioned perf table. The original "out of scope" note below allowed sorting by $/hr inside a VRAM floor. Single vendor only: RunPod.
 - Host RAM is not in the GPU catalog. It is sent as `minRamPerGpu` at create time. VRAM, family, reliability, and region are filtered before create.
-- Repo layout is `cli/`, `presets/`, and `sidecar/` instead of `apps/` + `packages/`. The vendor port is `cli/internal/vendor`.
+- Repo layout is `cli/`, `presets/`, `sidecar/`, `apps/web`, and `apps/desktop`. The vendor port is `cli/internal/vendor`. The client is not under `apps/cli`.
 - Receipts multiply the catalog $/hr by elapsed wall time. They are not the RunPod invoice.
 - Sessions are capped at 24 hours.
 - S3 credentials live in the environment on the machine that runs the CLI, and are copied into the pod env so rclone can run. The threat model’s “keys only in the control plane” mitigation is P2.
@@ -54,10 +55,13 @@ The CLI lives in `cli/` (Go module `github.com/wckdboy/wckd-gpu/cli`). Operator 
 
 ## Out of scope for MVP
 
-- Flutter UI
+- Control-plane API (the desktop shell calls the CLI instead)
+- Mobile store apps
 - Vast/Lambda
 - Multi-user
 - Fancy scoring (single-vendor sort by $/hr within VRAM floor is enough)
+
+The Flutter client in the original sketch was replaced by the PWA + Tauri shell.
 
 ## Acceptance tests
 

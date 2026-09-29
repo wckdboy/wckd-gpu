@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window can call the local wckd CLI bridge.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "allow-config-check",
+    "allow-list-offers",
+    "allow-start-session",
+    "allow-session-status",
+    "allow-stop-session",
+    "allow-list-presets",
+    "allow-list-projects",
+    "allow-add-project",
+    "allow-open-external"
+  ]
+}
