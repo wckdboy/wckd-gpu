@@ -1,0 +1,21 @@
+# Optional. Copy to ./wckd.yaml or ~/.wckd/config.yaml.
+# Environment variables override this file. Leave secrets empty here and set
+# them in the environment or a gitignored .env.
+
+runpod:
+  api_key: ""
+  base_url: https://api.runpod.io
+s3:
+  endpoint: ""
+  bucket: ""
+  access_key: ""
+  secret_key: ""
+  region: auto
+  path_style: true
+defaults:
+  hours: 1
+  project_id: hailuo-tests
+  preset_id: comfyui-minimax-h3
+state_dir: ~/.wckd
+presets_dir: presets
+# image: ghcr.io/you/wckd-comfy-h3:dev

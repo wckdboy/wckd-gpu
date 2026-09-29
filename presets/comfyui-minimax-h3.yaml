@@ -1,0 +1,49 @@
+apiVersion: wckd.gpu/v1
+kind: Preset
+metadata:
+  id: comfyui-minimax-h3
+  name: MiniMax H3 (ComfyUI)
+  version: 1
+spec:
+  workload_class: video_dit
+  constraints:
+    min_vram_gb: 24
+    min_ram_gb: 64
+    min_disk_gb: 100
+    gpu_families: ["5090", "4090", "L40S", "H100", "PRO6000"]
+    reliability: any
+    prefer_regions: ["EU"]
+  runtime:
+    # Public RunPod image so `wckd start` can place a pod before a custom
+    # image exists. Stock /start.sh does not run this entrypoint. Build
+    # sidecar/Dockerfile and set WCKD_IMAGE to that image before expecting
+    # hydrate, the workload, or drain-ok. See sidecar/README.md.
+    image: "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404"
+    entrypoint: ["/usr/local/bin/start-comfy.sh"]
+    env:
+      COMFY_PORT: "8188"
+    ports:
+      - name: ui
+        container: 8188
+        expose: tunnel
+    healthcheck:
+      http_get: "http://127.0.0.1:8188/"
+      interval_sec: 15
+      start_period_sec: 120
+  sync:
+    hydrate:
+      - from: "workspace/"
+        to: "/workspace"
+    drain:
+      - from: "/workspace"
+        to: "workspace/"
+        exclude: ["**/.cache/**", "**/__pycache__/**"]
+  notes: |
+    Peak VRAM for pruned H3 is about 31.8GB, so 32GB cards are tight.
+    Prefer host RAM >= 80GB; this preset asks RunPod for at least 64GB.
+    The committed image is a public PyTorch template, not ComfyUI and not H3.
+    The sidecar runs runtime.entrypoint after hydrate. If that binary is
+    missing it holds the session open until the deadline so the timer still works.
+    Replace the image with one built from sidecar/Dockerfile (or set WCKD_IMAGE)
+    before treating a session as a real ComfyUI box.
+    Wan 3.0 is API-only and is not this preset.
