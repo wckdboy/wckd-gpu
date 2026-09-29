@@ -1,6 +1,6 @@
 # Deploy the PWA on Coolify
 
-The Coolify app is the installable web shell in `apps/web`. It is a static build behind nginx. Tauri is not in this image. Start, status, stop, offers, and config check still need the desktop app, which runs the `wckd` CLI on a machine that holds the keys. The deployed site keeps saying **Desktop required for Start**.
+The Coolify app is the installable web shell in `apps/web`. It is a static build behind nginx. Tauri is not in this image. Start, status, stop, offers, and config check still need the desktop app, which runs the `wckd` CLI on a machine that holds the keys. The deployed site keeps saying **Desktop required for Start**. The catalog cost ticker in that shell is `$/hr × elapsed`, not an invoice.
 
 No RunPod, S3, or other provider secret belongs in the image, the Compose file, or Coolify env. The shell does not read them.
 

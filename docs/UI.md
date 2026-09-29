@@ -40,7 +40,7 @@ The countdown and the cost ticker use tabular numerals. Inside the last 15 minut
 
 1. **Home.** Session card or `no session`. One sticky Start dock: est. total USD, $/hr, duration, and the line “Hard stop at deadline; unpaid orphans are a failure.” Secondary actions are ghost buttons.
 2. **Offers.** Filters, then a compact table: score, vendor, SKU, VRAM, tier, $/hr, est. total. Rank 1 is marked REC. Click a row to lock it. Secure tier uses the info blue. Skeleton rows while ranking. Same Start dock. Dry run is ghost.
-3. **Session live.** Phase chip (`pending`, `hydrating`, `ready`, `draining`, plus `failed` / `terminated`), countdown, catalog ticker, Open UI, Extend, Stop. Extend explains that `wckd session extend` is not in P1. Stop confirms: “Stop runs drain → S3 sync → terminate. Force skip drain only if you accept data loss risk.” Force still requires the typed word `DESTROY`.
+3. **Session live.** Phase chip (`pending`, `hydrating`, `ready`, `draining`, plus `failed` / `terminated`), countdown, catalog ticker, Open UI, Extend, Stop. The ticker is catalog `$/hr × elapsed`, not an invoice. Open UI follows the session proxy URL and allows `http://` as well as `https://`, which vendor proxies use. Extend explains that `wckd session extend` is not in P1. Stop confirms: “Stop runs drain → S3 sync → terminate. Force skip drain only if you accept data loss risk.” Force still requires the typed word `DESTROY`.
 4. **Projects, presets, settings.** Same surfaces. They do not get a mint primary. Config check, create, and preset pick are outline buttons.
 
 ## Empty, loading, error
