@@ -18,12 +18,16 @@ RUN pnpm install --frozen-lockfile --filter @wckd/web...
 COPY presets presets
 COPY apps/web apps/web
 
-# Public Vite flag only. The UI does not read it yet. Never pass secrets.
+# Compose passes this as a build-arg (${VITE_PUBLIC_BASE_URL:-}).
+# ARG is in scope for the next RUN; ENV exports it into the Vite process
+# so a later import.meta.env.VITE_PUBLIC_BASE_URL read is inlined here.
+# The UI does not read it yet. Never pass secrets. This stage is not the runtime image.
 ARG VITE_PUBLIC_BASE_URL=
 ENV VITE_PUBLIC_BASE_URL=${VITE_PUBLIC_BASE_URL}
 
 RUN pnpm --filter @wckd/web build
 
+# Runtime is static files. No ARG, no ENV, no secrets. nginx listens on 80.
 FROM nginx:1.27-alpine
 
 RUN apk add --no-cache curl libcap \
