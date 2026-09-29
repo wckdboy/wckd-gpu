@@ -5,6 +5,9 @@
 node_modules/
 dist/
 build/
+bin/
 *.pem
 .idea/
 .vscode/
+wckd.yaml
+.wckd/

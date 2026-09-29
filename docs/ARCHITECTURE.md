@@ -2,7 +2,7 @@
 
 **Version:** 0.1  
 **Date:** 2026-09-29 (Europe/Copenhagen)  
-**Status:** Spec only — not implemented  
+**Status:** P1 CLI implemented (see [MVP.md](MVP.md)). Control plane and clients are not started.  
 **Owner:** WCKD / BLXMP
 
 ---
