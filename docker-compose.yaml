@@ -19,12 +19,16 @@ services:
     image: wckd-web
     restart: unless-stopped
     expose:
-      - "80"
-    # No runtime environment. Static files on nginx :80; Coolify's proxy
-    # terminates TLS. Do not add PORT, secrets, or env_file.
+      # Coolify's predefined PORT is the container port the proxy targets.
+      # Default 80 matches nginx (apps/web/nginx.conf, Dockerfile EXPOSE).
+      # A literal 80 would not show up under Environment Variables.
+      - "${PORT:-80}"
+    # No runtime environment. nginx listens on 80 and does not read PORT.
+    # Coolify terminates TLS and forwards to that container port.
+    # Do not add secrets or env_file.
     # Coolify assigns the public port. Uncomment only for a local smoke test:
     # ports:
-    #   - "8080:80"
+    #   - "8080:${PORT:-80}"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1/"]
       interval: 30s
