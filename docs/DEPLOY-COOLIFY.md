@@ -6,7 +6,7 @@ No RunPod, S3, AWS, or other provider secret belongs in the image, the Compose f
 
 ## What Coolify runs
 
-`docker-compose.yml` at the repo root has one service, `web`:
+`docker-compose.yaml` at the repo root has one service, `web`:
 
 - Build context is the repo root (`apps/web/Dockerfile`) so the image can bundle `presets/*.yaml`
 - nginx listens on port **80** inside the container
@@ -31,7 +31,7 @@ Nothing else is defined. nginx listens on 80, which is Coolify’s default proxy
 
 ### How Coolify maps them
 
-1. After the resource loads `docker-compose.yml`, Coolify lists `VITE_PUBLIC_BASE_URL` because `build.args` references it. Set the value under **Configuration → Environment Variables** if you want one. Build-time is what matters. A runtime checkbox does not put the variable in the container: this service has no `environment:` section.
+1. After the resource loads `docker-compose.yaml`, Coolify lists `VITE_PUBLIC_BASE_URL` because `build.args` references it. Set the value under **Configuration → Environment Variables** if you want one. Build-time is what matters. A runtime checkbox does not put the variable in the container: this service has no `environment:` section.
 2. On deploy, Compose substitutes `${VITE_PUBLIC_BASE_URL:-}` from that value. Unset or empty stays empty.
 3. The substituted string is the Docker build-arg. Coolify can also forward build-scoped variables with **Advanced → Inject Build Args to Dockerfile**. The Dockerfile declares `ARG VITE_PUBLIC_BASE_URL=` and `ENV VITE_PUBLIC_BASE_URL=...` immediately before `pnpm --filter @wckd/web build`, so the Vite process sees the value either way.
 4. The runtime stage is a new nginx image. It does not receive the `ARG` or `ENV`. Changing the URL means a new image build, not a container restart.
@@ -40,7 +40,7 @@ Build-args can show up in build logs. Do not mark a provider key as a build vari
 
 ### Forbidden on this resource
 
-Do not define these in Coolify, in `docker-compose.yml`, or as image build-args. The PWA does not use them. They stay in the desktop machine’s `.env` or process environment, next to the `wckd` binary.
+Do not define these in Coolify, in `docker-compose.yaml`, or as image build-args. The PWA does not use them. They stay in the desktop machine’s `.env` or process environment, next to the `wckd` binary.
 
 - `RUNPOD_API_KEY`, `WCKD_RUNPOD_API_KEY`, any `RUNPOD_*` or `WCKD_RUNPOD_*`
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, any `AWS_*`
@@ -49,7 +49,7 @@ Do not define these in Coolify, in `docker-compose.yml`, or as image build-args.
 ## Create the app
 
 1. Coolify → new resource → **Docker Compose**.
-2. Point it at this repository and branch. Compose path: `docker-compose.yml` (repo root).
+2. Point it at this repository and branch. Compose path: `docker-compose.yaml` (repo root).
 3. Environment Variables: optional `VITE_PUBLIC_BASE_URL` only, as in the table above. Do not add RunPod, AWS, or S3 keys.
 4. Set the domain on the `web` service. Coolify issues the certificate. The container stays on port 80.
 5. Deploy. A healthy check is HTTP 200 on `/` and on a client route such as `/index.html`. Unknown paths also return `index.html` so the PWA shell loads.
