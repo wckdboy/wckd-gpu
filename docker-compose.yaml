@@ -1,6 +1,12 @@
 # Coolify: new resource → Docker Compose → this repository.
 # Coolify terminates TLS and routes the domain to the exposed port.
 # This file builds the installable PWA only. Tauri stays on the desktop.
+#
+# Coolify injects Environment Variables for ${} substitution (no env_file
+# required). Hardcoded values here block those overrides.
+# Build-time public flags go under build.args. The runtime container is
+# static nginx on port 80 and has no environment block.
+# Do not set RUNPOD_*, AWS_*, S3_*, or any provider secret on this resource.
 
 services:
   web:
@@ -8,12 +14,14 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Public and unused by the current UI. Leave empty. Do not put keys here.
-        VITE_PUBLIC_BASE_URL: ""
+        # Public build-time flag. Empty unless Coolify (or the shell) sets it.
+        VITE_PUBLIC_BASE_URL: ${VITE_PUBLIC_BASE_URL:-}
     image: wckd-web
     restart: unless-stopped
     expose:
       - "80"
+    # No runtime environment. Static files on nginx :80; Coolify's proxy
+    # terminates TLS. Do not add PORT, secrets, or env_file.
     # Coolify assigns the public port. Uncomment only for a local smoke test:
     # ports:
     #   - "8080:80"
