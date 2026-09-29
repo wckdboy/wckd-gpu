@@ -15,10 +15,12 @@ import {
   ControlError,
   phaseActive,
   type ControlClient,
+  type Offer,
   type Preset,
   type Project,
   type Session,
 } from "../control/types";
+import type { OfferSource } from "../ui/startGate";
 
 export type View = "home" | "projects" | "presets" | "offers" | "session" | "settings";
 
@@ -41,6 +43,9 @@ interface AppState {
   setSession: (session: Session | null) => void;
   draft: Draft;
   setDraft: (draft: Draft) => void;
+  lockedOffer: Offer | null;
+  offerSource: OfferSource;
+  lockOffer: (offer: Offer | null, source: OfferSource) => void;
   error: string;
   setError: (error: string) => void;
   notice: string;
@@ -69,6 +74,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hours: 4,
     offerId: "",
   });
+  const [lockedOffer, setLockedOffer] = useState<Offer | null>(null);
+  const [offerSource, setOfferSource] = useState<OfferSource>("none");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -79,6 +86,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback((next: ClientSettings) => {
     saveSettings(next);
     setSettings(next);
+  }, []);
+
+  const lockOffer = useCallback((offer: Offer | null, source: OfferSource) => {
+    setLockedOffer(offer);
+    setOfferSource(offer ? source : "none");
+    setDraft((current) => ({ ...current, offerId: offer?.id ?? "" }));
   }, []);
 
   const refreshCatalog = useCallback(async () => {
@@ -183,6 +196,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession,
       draft,
       setDraft,
+      lockedOffer,
+      offerSource,
+      lockOffer,
       error,
       setError,
       notice,
@@ -203,6 +219,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       projects,
       session,
       draft,
+      lockedOffer,
+      offerSource,
+      lockOffer,
       error,
       notice,
       busy,

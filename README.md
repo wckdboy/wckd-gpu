@@ -142,7 +142,9 @@ The UI uses a `ControlClient`:
 
 Nothing in the client stores a RunPod or S3 secret. Do not put keys in the settings screen.
 
-In the desktop app: Settings → Config check, then Offers → Rank offers. **Dry run** calls `wckd start --dry-run` and does not create a pod. **Start** does. Session shows the phase, the countdown to `deadline_at`, the catalog estimate, and Open UI (the proxy URL, opened in the system browser). Stop asks for confirmation. If the drain marker never arrives, the pod stays up; Force requires the typed word `DESTROY`.
+The console palette, type, and screen rules are in [docs/UI.md](docs/UI.md).
+
+In the desktop app: Settings → Config check, then Offers → Rank offers. **Dry run** calls `wckd start --dry-run` and does not create a pod. **Start** does, and it stays disabled until an offer is locked. The PWA shows “Desktop required for Start” and can preview a labeled sample rank. Session shows the phase, the countdown to `deadline_at` (amber inside T−15), a catalog cost ticker, Open UI, and a stub Extend. Stop confirms drain → S3 sync → terminate. If the drain marker never arrives, the pod stays up; Force requires the typed word `DESTROY`.
 
 `start` still detaches `wckd sweeper` unless `WCKD_NO_SWEEPER=1`.
 

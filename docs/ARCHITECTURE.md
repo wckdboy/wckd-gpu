@@ -255,14 +255,16 @@ Secrets stay in the CLI's `.env` or process environment. The client stores a bin
 
 Screens:
 
-1. Home — active session summary + primary Start
+1. Home — active session summary + one mint Start. The dock shows est. total, $/hr, duration, and the hard-stop risk line before anything is rented.
 2. Projects — list / create local project ids (`projects/<id>/` on S3)
 3. Presets — browse `presets/*.yaml`
-4. Offer sheet — ranked quotes and the estimate before start
-5. Session live — phase, countdown to the deadline, cost estimate, Open UI, Stop
+4. Offer sheet — compact ranked table (score, vendor, SKU, VRAM, tier, $/hr, est. total). The first row is recommended; the user can lock another. Same Start dock as Home.
+5. Session live — phase chip, countdown (amber flash at T−15), catalog cost ticker, Open UI, Extend (stub: P1 has no `wckd session extend`), Stop
 6. Settings — `wckd` path, env/config location, `wckd config check`
 
-Stop asks for confirmation. A failed drain leaves the pod up; `--force` requires typing `DESTROY`.
+Visual tokens and screen rules live in [UI.md](UI.md). The PWA can preview a labeled sample rank and sample live layout. Those rows are not quotes, and Start stays disabled until the Tauri bridge is present.
+
+Stop asks for confirmation: drain → S3 sync → terminate. A failed drain leaves the pod up; `--force` requires typing `DESTROY` and is the data-loss path.
 
 Push (FCM/APNs) waits on the mobile phase.
 

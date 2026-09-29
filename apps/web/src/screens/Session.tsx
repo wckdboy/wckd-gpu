@@ -1,24 +1,34 @@
 import { useRef, useState } from "react";
 
-import { phaseActive } from "../control/types";
+import { phaseActive, type Session } from "../control/types";
 import { useApp } from "../state/appState";
 import { money, phaseLabel, uiEndpoint } from "../ui/format";
+import { sampleSession } from "../ui/sample";
+import { useCostTicker } from "../ui/useCostTicker";
 import { useCountdown } from "../ui/useCountdown";
 
 export function SessionScreen() {
   const app = useApp();
-  const session = app.session;
+  const [preview, setPreview] = useState<Session | null>(null);
+  const session = app.session ?? preview;
+  const sample = !app.session && preview !== null;
   const stopRef = useRef<HTMLDialogElement>(null);
   const forceRef = useRef<HTMLDialogElement>(null);
+  const extendRef = useRef<HTMLDialogElement>(null);
   const [phrase, setPhrase] = useState("");
-  const countdown = useCountdown(session && phaseActive(session.phase) ? session.deadline_at : undefined);
+  const active = session ? phaseActive(session.phase) : false;
+  const countdown = useCountdown(active ? session?.deadline_at : undefined);
+  const accrued = useCostTicker(session?.offer.usd_per_hr ?? 0, session?.created_at, active);
   const openUrl = session ? uiEndpoint(session) : undefined;
   const drain = app.drainFailed || /drain did not finish/i.test(session?.error ?? "");
 
   async function stop(force: boolean) {
-    const next = await app.run(() =>
-      app.client.stop({ sessionId: session?.id, force }),
-    );
+    if (sample) {
+      setPhrase("");
+      app.setNotice("Sample layout. Desktop required to stop a pod.");
+      return;
+    }
+    const next = await app.run(() => app.client.stop({ sessionId: session?.id, force }));
     if (!next) {
       return;
     }
@@ -31,39 +41,56 @@ export function SessionScreen() {
   return (
     <section className="screen">
       <div className="screen-head">
-        <h1>Session</h1>
-        <p className="lede">Phase, hard-stop countdown, and the catalog cost estimate.</p>
+        <span className="tag">Session</span>
+        <h1>Live</h1>
+        <p className="lede">Phase, hard-stop countdown, and the catalog cost ticker.</p>
       </div>
 
       {!session ? (
-        <article className="card">
-          <h2>No session loaded</h2>
+        <div className="empty">
+          <p className="mono empty-title">no session</p>
           <p className="muted">
             {app.client.mode === "cli"
               ? "Status uses the current session remembered by the CLI."
-              : "Live status needs the desktop app. The PWA cannot shell out to wckd."}
+              : "Desktop required for live status. The PWA cannot shell out to wckd."}
           </p>
-          <button
-            type="button"
-            className="btn"
-            disabled={app.busy}
-            onClick={() =>
-              void app.run(async () => {
-                app.setSession(await app.client.status());
-              })
-            }
-          >
-            Refresh
-          </button>
-        </article>
+          {app.client.mode === "cli" ? (
+            <button
+              type="button"
+              className="btn"
+              disabled={app.busy}
+              onClick={() =>
+                void app.run(async () => {
+                  app.setSession(await app.client.status());
+                })
+              }
+            >
+              Refresh
+            </button>
+          ) : (
+            <button type="button" className="btn" onClick={() => setPreview(sampleSession(app.draft.hours))}>
+              Preview live layout
+            </button>
+          )}
+        </div>
       ) : (
         <>
+          {sample ? (
+            <div className="banner warn" role="status">
+              <span className="sample-flag">SAMPLE</span> — deadline is inside T−15 so the amber flash
+              is visible. Not a live pod.
+            </div>
+          ) : null}
           <article className="card">
-            <div className="card-row">
+            <div className="live-metrics">
               <span className={`phase phase-${session.phase}`}>{phaseLabel(session.phase)}</span>
-              <strong className={countdown?.elapsed ? "countdown late" : "countdown"}>
+              <span className={countdownClass(countdown)}>
                 {countdown ? (countdown.elapsed ? "Deadline elapsed" : countdown.label) : "No deadline"}
-              </strong>
+              </span>
+              <div className="ticker-block">
+                <span className="tag">{active ? "Catalog ticker" : "Estimate"}</span>
+                <strong className="ticker">{money(active ? accrued : session.cost_estimate_usd)}</strong>
+              </div>
             </div>
             <dl className="facts">
               <div>
@@ -80,11 +107,13 @@ export function SessionScreen() {
               </div>
               <div>
                 <dt>Estimate</dt>
-                <dd>{money(session.cost_estimate_usd)}</dd>
+                <dd className="mono">{money(session.cost_estimate_usd)}</dd>
               </div>
               <div>
                 <dt>Actual</dt>
-                <dd>{session.cost_actual_usd === undefined ? "—" : money(session.cost_actual_usd)}</dd>
+                <dd className="mono">
+                  {session.cost_actual_usd === undefined ? "—" : money(session.cost_actual_usd)}
+                </dd>
               </div>
               <div>
                 <dt>Pod</dt>
@@ -100,18 +129,24 @@ export function SessionScreen() {
               </div>
             </dl>
             {session.offer.name ? (
-              <p>
-                {session.offer.name} {session.offer.vram_gb} GB {session.offer.cloud}{" "}
-                {money(session.offer.usd_per_hr)}/hr
+              <p className="muted">
+                {session.offer.vendor} · {session.offer.sku} · {session.offer.vram_gb} GB ·{" "}
+                <span className={session.offer.cloud === "secure" ? "tier-secure" : undefined}>
+                  {session.offer.cloud}
+                </span>{" "}
+                · <span className="mono">{money(session.offer.usd_per_hr)}/hr</span>
               </p>
             ) : null}
             {session.error ? <p className="late">{session.error}</p> : null}
             {session.warning ? <p className="warn-text">{session.warning}</p> : null}
-            {session.forced ? (
-              <p className="late">Terminated with --force before drain completed.</p>
-            ) : null}
+            {session.forced ? <p className="late">Terminated with --force before drain completed.</p> : null}
             <div className="actions">
-              <button type="button" className="btn" disabled={app.busy} onClick={() => void app.refreshSession()}>
+              <button
+                type="button"
+                className="btn"
+                disabled={app.busy || sample}
+                onClick={() => void app.refreshSession()}
+              >
                 Refresh
               </button>
               {openUrl ? (
@@ -123,7 +158,12 @@ export function SessionScreen() {
                   Open UI
                 </button>
               ) : null}
-              {phaseActive(session.phase) ? (
+              {active ? (
+                <button type="button" className="btn" onClick={() => extendRef.current?.showModal()}>
+                  Extend
+                </button>
+              ) : null}
+              {active ? (
                 <button type="button" className="btn danger" onClick={() => stopRef.current?.showModal()}>
                   Stop
                 </button>
@@ -131,13 +171,13 @@ export function SessionScreen() {
             </div>
           </article>
 
-          {drain ? (
+          {drain && !sample ? (
             <article className="card warn-card">
               <h2>Drain failed</h2>
               <p>
-                The pod is still running. Retry Stop to wait for the S3 drain again. Force deletes
-                the pod even if <code>drain-ok</code> never arrived. Unsynced files on the pod can
-                be lost. The CLI form is <code>wckd stop {session.id} --force</code>.
+                The pod is still running. Retry Stop to wait for the S3 drain again. Force skip drain
+                only if you accept data loss risk. The CLI form is{" "}
+                <code>wckd stop {session.id} --force</code>.
               </p>
               <div className="actions">
                 <button type="button" className="btn" onClick={() => stopRef.current?.showModal()}>
@@ -154,21 +194,14 @@ export function SessionScreen() {
 
       <dialog ref={stopRef} className="modal">
         <form method="dialog" className="sheet">
-          <h2>Stop and drain?</h2>
-          <p>
-            Stop asks the sidecar to sync the project to S3, waits for the drain marker, then
-            deletes the pod. If the marker does not arrive, the pod stays up.
-          </p>
+          <span className="tag">Stop</span>
+          <h2>Drain, then terminate</h2>
+          <p>Stop runs drain → S3 sync → terminate. Force skip drain only if you accept data loss risk.</p>
           <div className="actions">
             <button type="submit" className="btn" value="cancel">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn danger"
-              value="stop"
-              onClick={() => void stop(false)}
-            >
+            <button type="submit" className="btn danger fill" value="stop" onClick={() => void stop(false)}>
               Stop
             </button>
           </div>
@@ -187,10 +220,11 @@ export function SessionScreen() {
             void stop(true);
           }}
         >
-          <h2>Force terminate</h2>
+          <span className="tag">Force</span>
+          <h2>Skip drain</h2>
           <p>
-            This is destructive. The pod is deleted even when the drain did not finish. Type{" "}
-            <code>DESTROY</code> to continue.
+            Stop runs drain → S3 sync → terminate. Force skip drain only if you accept data loss
+            risk. Type <code>DESTROY</code> to delete the pod anyway.
           </p>
           <input
             value={phrase}
@@ -210,12 +244,41 @@ export function SessionScreen() {
             >
               Cancel
             </button>
-            <button type="submit" className="btn danger" disabled={phrase !== "DESTROY" || app.busy}>
+            <button type="submit" className="btn danger fill" disabled={phrase !== "DESTROY" || app.busy}>
               Force stop
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog ref={extendRef} className="modal">
+        <form method="dialog" className="sheet">
+          <span className="tag">Extend</span>
+          <h2>Not in P1</h2>
+          <p>
+            The CLI has no extend command. Stop this session, then start again.{" "}
+            <code>wckd session extend</code> stays deferred.
+          </p>
+          <div className="actions">
+            <button type="submit" className="btn">
+              Close
             </button>
           </div>
         </form>
       </dialog>
     </section>
   );
+}
+
+function countdownClass(countdown: { elapsed: boolean; warn: boolean } | null): string {
+  if (!countdown) {
+    return "countdown";
+  }
+  if (countdown.elapsed) {
+    return "countdown late";
+  }
+  if (countdown.warn) {
+    return "countdown is-warn";
+  }
+  return "countdown";
 }

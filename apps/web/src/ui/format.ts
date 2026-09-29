@@ -9,6 +9,42 @@ export function money(value: number): string {
   }).format(value);
 }
 
+const WARN_MS = 15 * 60 * 1000;
+
+export interface CountdownState {
+  label: string;
+  elapsed: boolean;
+  warn: boolean;
+}
+
+export function describeCountdown(deadline: string, now: number): CountdownState | null {
+  const end = Date.parse(deadline);
+  if (Number.isNaN(end)) {
+    return null;
+  }
+  const remaining = end - now;
+  const total = Math.max(0, Math.floor(remaining / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const label = hours > 0 ? `${hours}h ${pad(minutes)}m ${pad(seconds)}s` : `${minutes}m ${pad(seconds)}s`;
+  return {
+    label,
+    elapsed: remaining <= 0,
+    warn: remaining > 0 && remaining <= WARN_MS,
+  };
+}
+
+export function catalogAccrual(usdPerHr: number, startedAt: string, now: number): number {
+  const start = Date.parse(startedAt);
+  if (!Number.isFinite(usdPerHr) || usdPerHr < 0 || Number.isNaN(start)) {
+    return 0;
+  }
+  const hours = Math.max(0, (now - start) / 3_600_000);
+  return usdPerHr * hours;
+}
+
 export function duration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(total / 3600);

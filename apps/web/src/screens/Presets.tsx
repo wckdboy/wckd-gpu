@@ -6,6 +6,7 @@ export function Presets() {
   return (
     <section className="screen">
       <div className="screen-head">
+        <span className="tag">Presets</span>
         <h1>Presets</h1>
         <p className="lede">
           Loaded from <code>presets/*.yaml</code>
@@ -59,7 +60,12 @@ export function Presets() {
           </article>
         ))}
       </div>
-      {app.presets.length === 0 ? <p className="muted">No presets found.</p> : null}
+      {app.presets.length === 0 ? (
+        <div className="empty">
+          <p className="mono empty-title">no presets</p>
+          <p className="muted">Expected presets/*.yaml next to the CLI, or the copies bundled in this app.</p>
+        </div>
+      ) : null}
     </section>
   );
 }

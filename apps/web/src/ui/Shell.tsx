@@ -29,15 +29,18 @@ export function Shell() {
   return (
     <div className="shell">
       <header className="topbar">
-        <div className="brand">wckd</div>
+        <div className="brand-lock">
+          <span className={app.session?.phase === "ready" ? "live-pip on" : "live-pip"} />
+          <div className="brand">wckd</div>
+        </div>
         <div className="top-meta">
           {app.session ? (
             <span className={`phase phase-${app.session.phase}`}>{phaseLabel(app.session.phase)}</span>
           ) : (
-            <span className="muted">No session</span>
+            <span className="tiny">No session</span>
           )}
           {countdown ? (
-            <span className={countdown.elapsed ? "countdown late" : "countdown"}>
+            <span className={countdown.elapsed ? "countdown late" : countdown.warn ? "countdown is-warn" : "countdown"}>
               {countdown.elapsed ? "Deadline elapsed" : countdown.label}
             </span>
           ) : null}

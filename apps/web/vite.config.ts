@@ -12,8 +12,8 @@ export default defineConfig({
         name: "wckd-gpu",
         short_name: "wckd",
         description: "One-button cloud GPU sessions",
-        theme_color: "#10140f",
-        background_color: "#10140f",
+        theme_color: "#0B0C0E",
+        background_color: "#0B0C0E",
         display: "standalone",
         start_url: "/",
         icons: [
@@ -31,7 +31,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff,woff2}"],
         navigateFallback: "index.html",
       },
     }),

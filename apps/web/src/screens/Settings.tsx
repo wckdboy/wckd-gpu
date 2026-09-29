@@ -26,6 +26,7 @@ export function Settings() {
   return (
     <section className="screen">
       <div className="screen-head">
+        <span className="tag">Settings</span>
         <h1>Settings</h1>
         <p className="lede">
           The desktop shell runs the <code>wckd</code> binary. Credentials stay in that process:
@@ -100,7 +101,7 @@ export function Settings() {
           <button type="submit" className="btn">
             Save
           </button>
-          <button type="button" className="btn primary" disabled={app.busy} onClick={() => void check()}>
+          <button type="button" className="btn" disabled={app.busy} onClick={() => void check()}>
             Config check
           </button>
         </div>

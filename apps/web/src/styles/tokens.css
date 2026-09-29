@@ -1,0 +1,39 @@
+/*
+  wckd-gpu ops console tokens.
+  Screens consume these names. Do not hard-code a second palette in components.
+*/
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0b0c0e;
+  --elevated: #12141a;
+  --panel: #181b22;
+  --line: #2a2f3a;
+
+  --text: #e8eaed;
+  --text-secondary: #9aa3b2;
+  --text-muted: #6b7380;
+
+  --accent: #3ddc97;
+  --warn: #f5a524;
+  --danger: #ff5c5c;
+  --info: #5b8cff;
+
+  --ink: #0b0c0e;
+
+  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, monospace;
+
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+
+  --dur-fast: 120ms;
+  --dur: 160ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --pad: 12px;
+  --hairline: 1px solid var(--line);
+}

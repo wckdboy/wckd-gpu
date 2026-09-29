@@ -26,6 +26,7 @@ export function Projects() {
   return (
     <section className="screen">
       <div className="screen-head">
+        <span className="tag">Projects</span>
         <h1>Projects</h1>
         <p className="lede">
           A project id is the S3 prefix <code>projects/&lt;id&gt;/</code>. Creating one here only
@@ -49,13 +50,16 @@ export function Projects() {
             spellCheck={false}
           />
         </label>
-        <button type="submit" className="btn primary" disabled={app.busy || invalid || id.trim() === ""}>
+        <button type="submit" className="btn" disabled={app.busy || invalid || id.trim() === ""}>
           Create
         </button>
       </form>
       {invalid ? <p className="late">Use letters, numbers, hyphens, or underscores. No slashes.</p> : null}
       {app.projects.length === 0 ? (
-        <p className="muted">No projects yet.</p>
+        <div className="empty">
+          <p className="mono empty-title">no projects</p>
+          <p className="muted">Add an id above. It becomes the S3 prefix when a session starts.</p>
+        </div>
       ) : (
         <table>
           <thead>
