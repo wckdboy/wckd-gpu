@@ -33,6 +33,11 @@ type Constraints struct {
 	GPUFamilies   []string
 	Reliability   string
 	PreferRegions []string
+	// RequireRegions drops any quote with no usable data center in the list.
+	// Empty means no hard filter. PreferRegions still only changes the score.
+	RequireRegions []string
+	// RequireSecure drops community cloud. Set for the EU-secure policy.
+	RequireSecure bool
 }
 
 // Query is the ranking request passed to a vendor adapter.
@@ -88,6 +93,8 @@ func Score(perfIndex, usdPerHour, reliability, region float64) float64 {
 }
 
 // Rank filters quotes and sorts by score descending, then cheaper rate, then id.
+// RequireRegions removes quotes that cannot be placed inside the hard filter.
+// PreferRegions only changes RegionFactor.
 func Rank(quotes []Quote, c Constraints, workloadClass string) []Offer {
 	var out []Offer
 	for _, q := range quotes {
@@ -161,6 +168,9 @@ func scoreQuote(q Quote, c Constraints, workloadClass string) (Offer, bool) {
 	default:
 		return Offer{}, false
 	}
+	if c.RequireSecure && cloud != "secure" {
+		return Offer{}, false
+	}
 
 	family, matched := matchFamily(q.GPUID+" "+q.Name, c.GPUFamilies)
 	if len(c.GPUFamilies) > 0 && !matched {
@@ -168,7 +178,19 @@ func scoreQuote(q Quote, c Constraints, workloadClass string) (Offer, bool) {
 	}
 
 	dcs := usableDataCenters(q.DataCenters)
+	if len(c.RequireRegions) > 0 {
+		dcs = matchingDataCenters(dcs, c.RequireRegions)
+		if len(dcs) == 0 {
+			// No proof the quote can be placed inside the hard filter.
+			return Offer{}, false
+		}
+	}
 	region, regionFactor, dcIDs := place(dcs, c.PreferRegions)
+	if len(c.RequireRegions) > 0 && len(dcIDs) == 0 {
+		// Soft preference refused to pin a data center. The hard filter still
+		// has to, or the vendor may place the pod outside require_regions.
+		dcIDs = dataCenterIDs(dcs)
+	}
 	perf, table := PerfIndex(workloadClass, family, q.VRAMGB)
 	rel := ReliabilityCommunity
 	if cloud == "secure" {
@@ -228,6 +250,26 @@ func firstRegion(dcs []DataCenter) string {
 	return dcs[0].ID
 }
 
+func matchingDataCenters(dcs []DataCenter, require []string) []DataCenter {
+	var out []DataCenter
+	for _, dc := range dcs {
+		if regionMatch(dc, require) {
+			out = append(out, dc)
+		}
+	}
+	return out
+}
+
+func dataCenterIDs(dcs []DataCenter) []string {
+	ids := make([]string, 0, len(dcs))
+	for _, dc := range dcs {
+		if dc.ID != "" {
+			ids = append(ids, dc.ID)
+		}
+	}
+	return ids
+}
+
 func usableDataCenters(dcs []DataCenter) []DataCenter {
 	var out []DataCenter
 	for _, dc := range dcs {
@@ -239,21 +281,53 @@ func usableDataCenters(dcs []DataCenter) []DataCenter {
 	return out
 }
 
+// MatchesRegion reports whether a data-center id or name satisfies one
+// require_regions or prefer_regions token. The token must sit on a boundary:
+// "EU" matches "EU-RO-1" and "EU Romania", and does not match "EUR-IS-1".
+func MatchesRegion(id, name string, regions []string) bool {
+	return regionMatch(DataCenter{ID: id, Name: name}, regions)
+}
+
 func regionMatch(dc DataCenter, prefer []string) bool {
 	if len(prefer) == 0 {
 		return true
 	}
-	hay := strings.ToUpper(dc.ID + " " + dc.Name)
 	for _, p := range prefer {
 		p = strings.ToUpper(strings.TrimSpace(p))
 		if p == "" {
 			continue
 		}
-		if strings.Contains(hay, p) {
+		if tokenAtBoundary(dc.ID, p) || tokenAtBoundary(dc.Name, p) {
 			return true
 		}
 	}
 	return false
+}
+
+func tokenAtBoundary(hay, token string) bool {
+	hay = strings.ToUpper(hay)
+	if token == "" || hay == "" {
+		return false
+	}
+	for i := 0; i+len(token) <= len(hay); {
+		j := strings.Index(hay[i:], token)
+		if j < 0 {
+			return false
+		}
+		j += i
+		end := j + len(token)
+		before := j == 0 || !isAlnumByte(hay[j-1])
+		after := end == len(hay) || !isAlnumByte(hay[end])
+		if before && after {
+			return true
+		}
+		i = j + 1
+	}
+	return false
+}
+
+func isAlnumByte(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
 func matchFamily(gpu string, allow []string) (string, bool) {

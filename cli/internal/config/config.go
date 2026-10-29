@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -136,7 +137,7 @@ func (c Config) MissingCredentials() []string {
 
 // ValidateHours enforces the P1 duration window.
 func ValidateHours(hours float64) error {
-	if hours <= 0 || hours > MaxSessionHours {
+	if math.IsNaN(hours) || math.IsInf(hours, 0) || hours <= 0 || hours > MaxSessionHours {
 		return fmt.Errorf("hours must be in (0, %g], got %v", float64(MaxSessionHours), hours)
 	}
 	return nil

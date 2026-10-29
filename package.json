@@ -1,6 +1,7 @@
 {
   "name": "wckd-gpu",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @wckd/web dev",
     "build": "pnpm --filter @wckd/web build",

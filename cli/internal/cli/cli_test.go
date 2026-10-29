@@ -33,7 +33,7 @@ func TestHelpListsCommands(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"config", "offers", "presets", "projects", "start", "status", "stop", "sweeper"} {
+	for _, name := range []string{"config", "offers", "presets", "projects", "start", "status", "stop", "sweeper", "serve"} {
 		if !strings.Contains(buf.String(), name) {
 			t.Fatalf("help missing %s\n%s", name, buf.String())
 		}
@@ -47,6 +47,7 @@ func TestHelpListsCommands(t *testing.T) {
 		{"start", "--help"},
 		{"status", "--help"},
 		{"stop", "--help"},
+		{"serve", "--help"},
 	} {
 		buf.Reset()
 		cmd = app.Command()

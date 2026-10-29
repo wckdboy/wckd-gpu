@@ -10,7 +10,18 @@ import type {
 import { ControlError } from "./types";
 
 const UNAVAILABLE =
-  "This installable app cannot start or stop a GPU. Open the Tauri desktop shell, which runs the wckd CLI on this machine. The HTTP control plane is not available yet.";
+  "This installable app cannot start or stop a GPU. Open the Tauri desktop shell, which runs the wckd CLI on this machine.";
+
+// TODO(http-bridge): `wckd serve` is the loopback engine (docs/API.md).
+// Invincible will supervise that process and proxy `/v1/rent/*`, attaching the
+// bearer from the mode-0600 key file. Do not put that key in localStorage.
+// When this bridge is pointed at the proxy, map:
+//   GET  /v1/rent/offers?preset&hours
+//   POST /v1/rent/sessions — 409 confirmation_required is the quote, not a failure;
+//        resend with confirm:true only after the user approves that offer
+//   GET  /v1/rent/sessions and /v1/rent/sessions/{id}
+//   POST /v1/rent/sessions/{id}/stop
+// Until then CliBridge remains the working client. There is no auto-start path.
 
 export class HttpBridge implements ControlClient {
   readonly mode = "http" as const;
@@ -60,7 +71,7 @@ export class HttpBridge implements ControlClient {
   private unavailable(): Promise<never> {
     const target = this.apiUrl.trim();
     const message = target
-      ? `Control API (${target}) is not implemented yet. ${UNAVAILABLE}`
+      ? `Control API (${target}) is not called from this PWA yet. ${UNAVAILABLE}`
       : UNAVAILABLE;
     return Promise.reject(new ControlError(message));
   }

@@ -4,7 +4,7 @@ One-button cloud GPU sessions for creative and agent workloads.
 
 Press start → pick a preset + hours → best price/perf on RunPod → provision → sync the project to S3-compatible storage → clean shutdown.
 
-**Status:** P1 CLI, plus an early P3 client (installable PWA and Tauri 2 desktop) that shells out to that CLI. The control plane is not started. Scope and deferrals: [docs/MVP.md](docs/MVP.md).
+**Status:** P1 CLI, plus `wckd serve` (loopback engine API for the Invincible gateway) and an early P3 client (installable PWA and Tauri 2 desktop) that shells out to the CLI. A hosted control plane is not started. Scope and deferrals: [docs/MVP.md](docs/MVP.md). The engine contract is [docs/API.md](docs/API.md).
 
 ## Why Go
 
@@ -16,6 +16,7 @@ The CLI is a single static binary in `cli/`. Go keeps the HTTP adapters, the ses
 - [MVP scope](docs/MVP.md)
 - [Preset schema](docs/PRESETS.md)
 - [Threat model](docs/THREAT-MODEL.md)
+- [Local engine API (`wckd serve`)](docs/API.md)
 - [Pod sidecar](sidecar/README.md)
 
 ## Build
@@ -76,6 +77,7 @@ wckd start --dry-run --hours 1 --project hailuo-tests --preset comfyui-minimax-h
 wckd status --json
 wckd stop --json
 wckd stop --force                 # delete the pod even if drain did not finish
+wckd serve                        # loopback API on 127.0.0.1:8787; see docs/API.md
 ```
 
 `start` prints a session id (`sess_…`). State is stored in `~/.wckd` (or `WCKD_STATE_DIR`). `status` and `stop` use that session when you omit the id.
@@ -90,7 +92,9 @@ score = (perf_index / usd_per_hr) * reliability_factor * region_factor
 
 Phases: `pending` → `hydrating` → `ready` → `draining` → `terminated`. `ready` means the sidecar wrote `hydrate-ok.json`. `stop` writes `control.json` with `action=drain`, waits up to two minutes for `drain-ok.json`, then deletes the pod. A missing marker leaves the pod running.
 
-`start` detaches `wckd sweeper`, which enforces the deadline while this machine stays up. `wckd sweeper --once` is the cron form.
+`start` detaches `wckd sweeper`, which enforces the deadline while this machine stays up. `wckd sweeper --once` is the cron form. `wckd serve` runs that sweep in-process instead of spawning a second sweeper, and reloads sessions from the state directory after a restart.
+
+Offers outside `require_regions` are dropped. The default is `EU` when a preset omits the field. `prefer_regions` is still only a score factor. `EU-secure` keeps the EU filter and allows Secure cloud only. `--require-regions any` disables the hard filter.
 
 `stop` waits up to 2 minutes for the drain marker (`WCKD_DRAIN_WAIT`, a Go duration such as `5m`). Poll interval is `WCKD_DRAIN_POLL` (default `5s`).
 
@@ -138,7 +142,7 @@ pnpm --filter @wckd/desktop dev    # Tauri. Needs Rust 1.90+ and the platform we
 The UI uses a `ControlClient`:
 
 - **CliBridge** (Tauri) runs `wckd` with `--json`. Settings are the binary path, an optional `--config` file, and the working directory that holds `.env`. The process environment is inherited, so exported keys work too.
-- **HttpBridge** (the PWA, and the later control plane) does not shell out. Presets come from the YAML bundled at build time. Project ids live in local storage. Start, status, stop, and config check show that the desktop app is required until the API exists.
+- **HttpBridge** (the PWA, and the later control plane) does not shell out and does not call `wckd serve`. The bearer for that API stays in a mode-0600 file on the machine that runs the binary. Invincible will proxy `/v1/rent/*` and attach the key. Presets come from the YAML bundled at build time. Project ids live in local storage. Start, status, stop, and config check show that the desktop app is required.
 
 Nothing in the client stores a RunPod or S3 secret. Do not put keys in the settings screen.
 
@@ -157,3 +161,7 @@ The P1 CLI runs on the machine that holds the API keys (Linux and macOS are what
 ## Owner
 
 WCKD / BLXMP — self-host and SMB AI tooling.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 wckdboy.

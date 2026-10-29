@@ -17,7 +17,8 @@ spec:
     min_disk_gb: 100
     gpu_families: ["5090", "4090", "L40S", "H100", "PRO6000"]
     reliability: any          # community | secure | any
-    prefer_regions: ["EU"]
+    prefer_regions: ["EU"]    # soft score factor only
+    require_regions: ["EU"]   # hard filter; omit for the EU default; "any" disables; "EU-secure" also requires Secure cloud
   runtime:
     image: "ghcr.io/wckd/comfyui-h3:latest"   # placeholder until built
     entrypoint: ["/usr/local/bin/start-comfy.sh"]
@@ -44,6 +45,8 @@ spec:
     Peak VRAM for pruned H3 measured ~31.8GB — 32GB cards are tight.
     Prefer host RAM ≥80GB on rented pods.
 ```
+
+`prefer_regions` changes the score (a miss uses region factor 0.90). `require_regions` drops quotes that have no usable data center in the list, and the provision call is pinned to those data centers. Omitting the field applies `["EU"]`. `["any"]` or `["*"]` disables the hard filter. `EU-secure` means EU and Secure cloud only.
 
 ## Gallery (planned)
 

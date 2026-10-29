@@ -65,6 +65,10 @@ type Receipt struct {
 
 const costBasis = "catalog_usd_per_hr_times_elapsed"
 
+// CostBasisEstimate labels hours times the catalog hourly rate.
+// It is not a vendor invoice.
+const CostBasisEstimate = "catalog_usd_per_hr_times_hours"
+
 // Estimate is hours times the catalog rate.
 func Estimate(usdPerHour, hours float64) float64 {
 	return usdPerHour * hours

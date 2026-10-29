@@ -16,19 +16,22 @@ type presetPortView struct {
 }
 
 type presetView struct {
-	ID            string           `json:"id"`
-	Name          string           `json:"name"`
-	Version       int              `json:"version"`
-	WorkloadClass string           `json:"workload_class"`
-	MinVRAMGB     int              `json:"min_vram_gb"`
-	MinRAMGB      int              `json:"min_ram_gb"`
-	MinDiskGB     int              `json:"min_disk_gb"`
-	GPUFamilies   []string         `json:"gpu_families"`
-	Reliability   string           `json:"reliability"`
-	PreferRegions []string         `json:"prefer_regions"`
-	Image         string           `json:"image"`
-	Ports         []presetPortView `json:"ports"`
-	Notes         string           `json:"notes"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Version       int      `json:"version"`
+	WorkloadClass string   `json:"workload_class"`
+	MinVRAMGB     int      `json:"min_vram_gb"`
+	MinRAMGB      int      `json:"min_ram_gb"`
+	MinDiskGB     int      `json:"min_disk_gb"`
+	GPUFamilies   []string `json:"gpu_families"`
+	Reliability   string   `json:"reliability"`
+	PreferRegions []string `json:"prefer_regions"`
+	// RequireRegions is omitted when the preset omits the field (the engine
+	// default is EU). A pointer keeps an explicit empty list as [].
+	RequireRegions *[]string        `json:"require_regions,omitempty"`
+	Image          string           `json:"image"`
+	Ports          []presetPortView `json:"ports"`
+	Notes          string           `json:"notes"`
 }
 
 func (a *App) presetsCmd() *cobra.Command {
@@ -74,6 +77,11 @@ func presetToView(f preset.File) presetView {
 	if regions == nil {
 		regions = []string{}
 	}
+	var require *[]string
+	if f.Spec.Constraints.RequireRegions != nil {
+		copied := append([]string{}, f.Spec.Constraints.RequireRegions...)
+		require = &copied
+	}
 	ports := make([]presetPortView, 0, len(f.Spec.Runtime.Ports))
 	for _, port := range f.Spec.Runtime.Ports {
 		ports = append(ports, presetPortView{
@@ -87,19 +95,20 @@ func presetToView(f preset.File) presetView {
 		reliability = "any"
 	}
 	return presetView{
-		ID:            f.Metadata.ID,
-		Name:          f.Metadata.Name,
-		Version:       f.Metadata.Version,
-		WorkloadClass: f.Spec.WorkloadClass,
-		MinVRAMGB:     f.Spec.Constraints.MinVRAMGB,
-		MinRAMGB:      f.Spec.Constraints.MinRAMGB,
-		MinDiskGB:     f.Spec.Constraints.MinDiskGB,
-		GPUFamilies:   families,
-		Reliability:   reliability,
-		PreferRegions: regions,
-		Image:         f.Spec.Runtime.Image,
-		Ports:         ports,
-		Notes:         f.Spec.Notes,
+		ID:             f.Metadata.ID,
+		Name:           f.Metadata.Name,
+		Version:        f.Metadata.Version,
+		WorkloadClass:  f.Spec.WorkloadClass,
+		MinVRAMGB:      f.Spec.Constraints.MinVRAMGB,
+		MinRAMGB:       f.Spec.Constraints.MinRAMGB,
+		MinDiskGB:      f.Spec.Constraints.MinDiskGB,
+		GPUFamilies:    families,
+		Reliability:    reliability,
+		PreferRegions:  regions,
+		RequireRegions: require,
+		Image:          f.Spec.Runtime.Image,
+		Ports:          ports,
+		Notes:          f.Spec.Notes,
 	}
 }
 

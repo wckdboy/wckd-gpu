@@ -20,6 +20,7 @@ The CLI lives in `cli/` (Go module `github.com/wckdboy/wckd-gpu/cli`). Operator 
 - [x] Sidecar scripts and `sidecar/Dockerfile` (rclone hydrate and drain)
 - [x] Unit tests for scoring, the state machine, and config parsing; HTTP tests mock RunPod and S3
 - [x] CI runs `make check` and does not call paid APIs
+- [x] `wckd serve` — loopback `/v1/rent/*` over this engine, for an Invincible child process. See [API.md](API.md).
 
 ### Deferred
 
@@ -30,7 +31,7 @@ The CLI lives in `cli/` (Go module `github.com/wckdboy/wckd-gpu/cli`). Operator 
 - [ ] Quarantine hold with a capped extra bill — P1 leaves the pod running and fails the stop
 - [ ] Short-lived prefix-scoped S3 credentials (the user key is injected into the pod)
 - [ ] Network volumes, Vast, Lambda, mobile store apps, multi-user
-- [ ] Control plane. The P3 PWA + Tauri shell is in `apps/web` and `apps/desktop` and talks to this CLI (`CliBridge`). `HttpBridge` waits on the API.
+- [ ] Hosted multi-user control plane. `wckd serve` is the local engine API (see [API.md](API.md)); Invincible will proxy it. The PWA `HttpBridge` still does not call it. `CliBridge` is the working client.
 - [ ] A published ComfyUI + MiniMax H3 image (the workload command is recorded; a missing binary holds the session open)
 
 ### Divergences from the spec

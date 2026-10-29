@@ -273,6 +273,79 @@ type statusErr struct {
 func (e *statusErr) Error() string   { return e.msg }
 func (e *statusErr) HTTPStatus() int { return e.code }
 
+func TestStartTerminatesPodOutsideRequireRegions(t *testing.T) {
+	v := &fakeVendor{
+		offers:  []offer.Offer{testOffer("runpod:community:GPU-A", "GPU-A", 0.5)},
+		placeDC: "US-KS-2",
+	}
+	svc := testService(t, v, newMem(), time.Now().UTC())
+	_, err := svc.Start(context.Background(), testReq())
+	if err == nil {
+		t.Fatal("expected out-of-region provision to fail")
+	}
+	if len(v.terminated) != 1 || v.terminated[0] != "pod-1" {
+		t.Fatalf("terminated %v", v.terminated)
+	}
+	list, err := svc.Sessions.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Phase != PhaseFailed || list[0].InstanceID != "" {
+		t.Fatalf("%+v", list)
+	}
+}
+
+func TestStartAllowsPlacementWhenHardFilterDisabled(t *testing.T) {
+	v := &fakeVendor{
+		offers:  []offer.Offer{testOffer("runpod:community:GPU-A", "GPU-A", 0.5)},
+		placeDC: "US-KS-2",
+	}
+	svc := testService(t, v, newMem(), time.Now().UTC())
+	p := testPreset()
+	p.Spec.Constraints.RequireRegions = []string{}
+	req := testReq()
+	req.Preset = p
+	sess, err := svc.Start(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.Phase != PhaseHydrating || sess.DataCenter != "US-KS-2" {
+		t.Fatalf("%+v", sess)
+	}
+	if len(v.terminated) != 0 {
+		t.Fatalf("soft placement terminated %v", v.terminated)
+	}
+}
+
+func TestRankedHardFilterDefaultsToEU(t *testing.T) {
+	v := &fakeVendor{}
+	svc := testService(t, v, newMem(), time.Now().UTC())
+	if _, err := svc.Ranked(context.Background(), testPreset()); err != nil {
+		t.Fatal(err)
+	}
+	if got := v.lastQuery.Constraints.RequireRegions; len(got) != 1 || got[0] != "EU" {
+		t.Fatalf("require %v", got)
+	}
+	if v.lastQuery.Constraints.RequireSecure {
+		t.Fatal("default must allow community cloud inside EU")
+	}
+	p := testPreset()
+	p.Spec.Constraints.RequireRegions = []string{"EU-secure"}
+	if _, err := svc.Ranked(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if !v.lastQuery.Constraints.RequireSecure || len(v.lastQuery.Constraints.RequireRegions) != 1 || v.lastQuery.Constraints.RequireRegions[0] != "EU" {
+		t.Fatalf("eu-secure %+v", v.lastQuery.Constraints)
+	}
+	anyRegions := []string{"any"}
+	if _, err := svc.RankedOverride(context.Background(), testPreset(), &anyRegions); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.lastQuery.Constraints.RequireRegions) != 0 || v.lastQuery.Constraints.RequireSecure {
+		t.Fatalf("opt-out %+v", v.lastQuery.Constraints)
+	}
+}
+
 type fakeVendor struct {
 	offers     []offer.Offer
 	failN      int
@@ -280,9 +353,12 @@ type fakeVendor struct {
 	status     string
 	created    []vendor.ProvisionRequest
 	terminated []string
+	lastQuery  offer.Query
+	placeDC    string
 }
 
-func (f *fakeVendor) ListOffers(context.Context, offer.Query) ([]offer.Offer, error) {
+func (f *fakeVendor) ListOffers(_ context.Context, q offer.Query) ([]offer.Offer, error) {
+	f.lastQuery = q
 	return f.offers, nil
 }
 
@@ -296,7 +372,11 @@ func (f *fakeVendor) Provision(_ context.Context, req vendor.ProvisionRequest) (
 		}
 		return vendor.Instance{}, &statusErr{code: code, msg: "no capacity"}
 	}
-	return vendor.Instance{ID: "pod-1", Status: "PROVISIONING", DataCenter: "EU-RO-1"}, nil
+	dc := f.placeDC
+	if dc == "" {
+		dc = "EU-RO-1"
+	}
+	return vendor.Instance{ID: "pod-1", Status: "PROVISIONING", DataCenter: dc}, nil
 }
 
 func (f *fakeVendor) Status(context.Context, string) (vendor.Instance, error) {

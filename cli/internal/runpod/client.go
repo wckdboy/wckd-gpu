@@ -65,7 +65,7 @@ func (c *Client) Ping(ctx context.Context) error {
 // and ranks the result.
 func (c *Client) ListOffers(ctx context.Context, q offer.Query) ([]offer.Offer, error) {
 	var quotes []offer.Quote
-	for _, cloud := range cloudsFor(q.Constraints.Reliability) {
+	for _, cloud := range cloudsFor(q.Constraints) {
 		gpus, err := c.listGPUs(ctx, cloud)
 		if err != nil {
 			return nil, err
@@ -127,8 +127,15 @@ func (c *Client) Terminate(ctx context.Context, id string) error {
 	return err
 }
 
-func cloudsFor(reliability string) []string {
-	switch strings.ToLower(strings.TrimSpace(reliability)) {
+func cloudsFor(c offer.Constraints) []string {
+	rel := strings.ToLower(strings.TrimSpace(c.Reliability))
+	if c.RequireSecure {
+		if rel == "community" {
+			return nil
+		}
+		return []string{"SECURE"}
+	}
+	switch rel {
 	case "community":
 		return []string{"COMMUNITY"}
 	case "secure":

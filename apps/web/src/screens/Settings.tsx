@@ -40,12 +40,13 @@ export function Settings() {
         <p>
           Do not paste API keys here. They are not written to localStorage, and the PWA cannot
           read your <code>.env</code>. On the desktop app the CLI loads them from the working
-          directory. A future control plane would keep provider keys in its vault;{" "}
-          <code>HttpBridge</code> is the stub for that API.
+          directory. <code>wckd serve</code> is the local engine API. This PWA does not call it:
+          the bearer key stays in a file on the machine that runs the binary.{" "}
+          <code>HttpBridge</code> is the stub for when Invincible proxies that API.
         </p>
         <p className="muted">
           PWA installs can browse presets and local project ids. Start, status, stop, and config
-          check need the Tauri app until the control plane exists.
+          check need the Tauri app, which shells out to the CLI.
         </p>
       </article>
 
@@ -92,7 +93,7 @@ export function Settings() {
           <input
             value={form.controlApiUrl}
             onChange={(event) => setField("controlApiUrl", event.target.value)}
-            placeholder="https://… (not used yet)"
+            placeholder="unused — the PWA does not call wckd serve"
             spellCheck={false}
             autoComplete="off"
           />

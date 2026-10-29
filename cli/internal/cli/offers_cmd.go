@@ -5,15 +5,17 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wckdboy/wckd-gpu/cli/internal/config"
+	"github.com/wckdboy/wckd-gpu/cli/internal/offer"
 	"github.com/wckdboy/wckd-gpu/cli/internal/preset"
 )
 
 func (a *App) offersCmd() *cobra.Command {
 	var (
-		presetID string
-		hours    float64
-		asJSON   bool
-		limit    int
+		presetID       string
+		hours          float64
+		asJSON         bool
+		limit          int
+		requireRegions string
 	)
 	cmd := &cobra.Command{
 		Use:   "offers",
@@ -50,11 +52,19 @@ This command does not create a pod.`,
 			if err != nil {
 				return err
 			}
+			override, err := requireOverride(cmd, requireRegions)
+			if err != nil {
+				return err
+			}
+			policy, err := offer.ResolveRequire(p.Spec.Constraints.RequireRegions, override)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			if ctx == nil {
 				ctx = cmdContext()
 			}
-			offers, err := d.svc.Ranked(ctx, p)
+			offers, err := d.svc.RankedOverride(ctx, p, override)
 			if err != nil {
 				return err
 			}
@@ -67,6 +77,7 @@ This command does not create a pod.`,
 			if asJSON {
 				return writeJSON(a.stdout(), offers)
 			}
+			fmt.Fprintf(a.stdout(), "require_regions: %s\n", policy.Label())
 			writeOffers(a.stdout(), offers, h)
 			return nil
 		},
@@ -75,5 +86,6 @@ This command does not create a pod.`,
 	cmd.Flags().Float64Var(&hours, "hours", 0, "hours used only for the estimate column")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "print offers as JSON")
 	cmd.Flags().IntVar(&limit, "limit", 20, "maximum rows to print")
+	cmd.Flags().StringVar(&requireRegions, "require-regions", "", "hard region filter (default EU; EU-secure also requires Secure cloud; any disables)")
 	return cmd
 }

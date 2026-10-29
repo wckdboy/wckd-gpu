@@ -2,7 +2,7 @@
 
 **Version:** 0.1  
 **Date:** 2026-09-29 (Europe/Copenhagen)  
-**Status:** P1 CLI is implemented (see [MVP.md](MVP.md)). The P3 client shell (installable PWA + Tauri 2 desktop) talks to that CLI. The control plane is not started.  
+**Status:** P1 CLI is implemented (see [MVP.md](MVP.md)). `wckd serve` is the loopback engine API an Invincible node can supervise as a child process ([API.md](API.md)). The P3 client shell (installable PWA + Tauri 2 desktop) still talks to the CLI through `CliBridge`. A hosted multi-user control plane is not started.  
 **Owner:** WCKD / BLXMP
 
 ---
@@ -247,7 +247,7 @@ The UI talks to a `ControlClient`:
 | Bridge | When |
 |--------|------|
 | `CliBridge` | Tauri. Spawns `wckd` (`config check`, `offers`, `presets`, `projects`, `start`, `status`, `stop`) and parses `--json`. |
-| `HttpBridge` | Browser / PWA, and the later control-plane swap. GPU calls are rejected until that API exists. Presets are bundled from `presets/*.yaml`. Project ids stay in local storage and are not secrets. |
+| `HttpBridge` | Browser / PWA, and the later control-plane swap. GPU calls stay rejected: the PWA must not store the `wckd serve` bearer. Invincible will proxy `/v1/rent/*` and attach that key. Presets are bundled from `presets/*.yaml`. Project ids stay in local storage and are not secrets. |
 
 v0 is ahead of the control plane on purpose: the desktop app can run a session with the CLI that already exists. Dry-run (`wckd start --dry-run`) is the path that ranks a pick without creating a pod.
 
@@ -335,7 +335,7 @@ Details: [MVP.md](MVP.md).
 
 1. **Resolved:** PWA + Tauri 2 for desktop and web. Mobile store apps remain P4. The old Flutter recommendation is retired.
 2. Managed control plane vs fully self-hosted binary for paranoid users.
-3. Whether EU-only offer filter is default for BLXMP.
+3. **Resolved for the engine:** `require_regions` defaults to a hard EU filter. `EU-secure` also limits offers to Secure cloud. `prefer_regions` stays a score factor.
 4. First preset: MiniMax H3 ComfyUI vs generic PyTorch.
 
 ---

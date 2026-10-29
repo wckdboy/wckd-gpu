@@ -1,6 +1,7 @@
 {
   "name": "@wckd/desktop",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
