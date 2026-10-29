@@ -273,6 +273,35 @@ type statusErr struct {
 func (e *statusErr) Error() string   { return e.msg }
 func (e *statusErr) HTTPStatus() int { return e.code }
 
+func TestRankedHardFilterDefaultsToEU(t *testing.T) {
+	v := &fakeVendor{}
+	svc := testService(t, v, newMem(), time.Now().UTC())
+	if _, err := svc.Ranked(context.Background(), testPreset()); err != nil {
+		t.Fatal(err)
+	}
+	if got := v.lastQuery.Constraints.RequireRegions; len(got) != 1 || got[0] != "EU" {
+		t.Fatalf("require %v", got)
+	}
+	if v.lastQuery.Constraints.RequireSecure {
+		t.Fatal("default must allow community cloud inside EU")
+	}
+	p := testPreset()
+	p.Spec.Constraints.RequireRegions = []string{"EU-secure"}
+	if _, err := svc.Ranked(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if !v.lastQuery.Constraints.RequireSecure || len(v.lastQuery.Constraints.RequireRegions) != 1 || v.lastQuery.Constraints.RequireRegions[0] != "EU" {
+		t.Fatalf("eu-secure %+v", v.lastQuery.Constraints)
+	}
+	anyRegions := []string{"any"}
+	if _, err := svc.RankedOverride(context.Background(), testPreset(), &anyRegions); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.lastQuery.Constraints.RequireRegions) != 0 || v.lastQuery.Constraints.RequireSecure {
+		t.Fatalf("opt-out %+v", v.lastQuery.Constraints)
+	}
+}
+
 type fakeVendor struct {
 	offers     []offer.Offer
 	failN      int
@@ -280,9 +309,11 @@ type fakeVendor struct {
 	status     string
 	created    []vendor.ProvisionRequest
 	terminated []string
+	lastQuery  offer.Query
 }
 
-func (f *fakeVendor) ListOffers(context.Context, offer.Query) ([]offer.Offer, error) {
+func (f *fakeVendor) ListOffers(_ context.Context, q offer.Query) ([]offer.Offer, error) {
+	f.lastQuery = q
 	return f.offers, nil
 }
 

@@ -181,6 +181,36 @@ func TestErrorDoesNotEchoRequest(t *testing.T) {
 	}
 }
 
+func TestRequireSecureListsSecureCloudOnly(t *testing.T) {
+	var clouds []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v2/catalog/gpus" {
+			clouds = append(clouds, r.URL.Query().Get("cloud"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"gpus":[]}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "k")
+	c.MaxAttempts = 1
+	offers, err := c.ListOffers(context.Background(), offer.Query{
+		WorkloadClass: "llm",
+		Constraints: offer.Constraints{
+			Reliability:   "any",
+			RequireSecure: true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(offers) != 0 {
+		t.Fatalf("offers %#v", offers)
+	}
+	if len(clouds) != 1 || clouds[0] != "SECURE" {
+		t.Fatalf("clouds %v", clouds)
+	}
+}
+
 func TestFormatPorts(t *testing.T) {
 	p, err := FormatPorts("ui", 22, "tcp")
 	if err != nil || p.Spec != "22/tcp" {

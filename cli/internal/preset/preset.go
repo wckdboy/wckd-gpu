@@ -44,6 +44,10 @@ type Constraints struct {
 	GPUFamilies   []string `yaml:"gpu_families"`
 	Reliability   string   `yaml:"reliability"`
 	PreferRegions []string `yaml:"prefer_regions"`
+	// RequireRegions is a hard data-center filter. Nil means the engine
+	// default (EU). An empty list, or the token "any", disables it.
+	// "EU-secure" requires an EU data center and Secure cloud.
+	RequireRegions []string `yaml:"require_regions"`
 }
 
 // Runtime is the container contract.

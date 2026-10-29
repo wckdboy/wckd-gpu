@@ -20,4 +20,5 @@ check: build test
 	./$(BIN) status --help >/dev/null
 	./$(BIN) stop --help >/dev/null
 	./$(BIN) sweeper --help >/dev/null
+	./$(BIN) serve --help >/dev/null
 	bash -n sidecar/lib.sh sidecar/bootstrap.sh sidecar/drain.sh

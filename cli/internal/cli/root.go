@@ -67,6 +67,7 @@ perf_index values are labeled estimates, not live benchmarks.`,
 		a.statusCmd(),
 		a.stopCmd(),
 		a.sweeperCmd(),
+		a.serveCmd(),
 	)
 	return root
 }

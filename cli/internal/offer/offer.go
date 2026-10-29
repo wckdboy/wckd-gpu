@@ -33,6 +33,11 @@ type Constraints struct {
 	GPUFamilies   []string
 	Reliability   string
 	PreferRegions []string
+	// RequireRegions drops any quote with no usable data center in the list.
+	// Empty means no hard filter. PreferRegions still only changes the score.
+	RequireRegions []string
+	// RequireSecure drops community cloud. Set for the EU-secure policy.
+	RequireSecure bool
 }
 
 // Query is the ranking request passed to a vendor adapter.
@@ -88,6 +93,8 @@ func Score(perfIndex, usdPerHour, reliability, region float64) float64 {
 }
 
 // Rank filters quotes and sorts by score descending, then cheaper rate, then id.
+// RequireRegions removes quotes that cannot be placed inside the hard filter.
+// PreferRegions only changes RegionFactor.
 func Rank(quotes []Quote, c Constraints, workloadClass string) []Offer {
 	var out []Offer
 	for _, q := range quotes {
@@ -161,6 +168,9 @@ func scoreQuote(q Quote, c Constraints, workloadClass string) (Offer, bool) {
 	default:
 		return Offer{}, false
 	}
+	if c.RequireSecure && cloud != "secure" {
+		return Offer{}, false
+	}
 
 	family, matched := matchFamily(q.GPUID+" "+q.Name, c.GPUFamilies)
 	if len(c.GPUFamilies) > 0 && !matched {
@@ -168,7 +178,19 @@ func scoreQuote(q Quote, c Constraints, workloadClass string) (Offer, bool) {
 	}
 
 	dcs := usableDataCenters(q.DataCenters)
+	if len(c.RequireRegions) > 0 {
+		dcs = matchingDataCenters(dcs, c.RequireRegions)
+		if len(dcs) == 0 {
+			// No proof the quote can be placed inside the hard filter.
+			return Offer{}, false
+		}
+	}
 	region, regionFactor, dcIDs := place(dcs, c.PreferRegions)
+	if len(c.RequireRegions) > 0 && len(dcIDs) == 0 {
+		// Soft preference refused to pin a data center. The hard filter still
+		// has to, or the vendor may place the pod outside require_regions.
+		dcIDs = dataCenterIDs(dcs)
+	}
 	perf, table := PerfIndex(workloadClass, family, q.VRAMGB)
 	rel := ReliabilityCommunity
 	if cloud == "secure" {
@@ -226,6 +248,26 @@ func firstRegion(dcs []DataCenter) string {
 		return ""
 	}
 	return dcs[0].ID
+}
+
+func matchingDataCenters(dcs []DataCenter, require []string) []DataCenter {
+	var out []DataCenter
+	for _, dc := range dcs {
+		if regionMatch(dc, require) {
+			out = append(out, dc)
+		}
+	}
+	return out
+}
+
+func dataCenterIDs(dcs []DataCenter) []string {
+	ids := make([]string, 0, len(dcs))
+	for _, dc := range dcs {
+		if dc.ID != "" {
+			ids = append(ids, dc.ID)
+		}
+	}
+	return ids
 }
 
 func usableDataCenters(dcs []DataCenter) []DataCenter {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -130,6 +131,9 @@ func TestValidateHoursAndIDs(t *testing.T) {
 	}
 	if err := ValidateHours(0); err == nil {
 		t.Fatal("expected 0 to fail")
+	}
+	if err := ValidateHours(math.NaN()); err == nil {
+		t.Fatal("nan")
 	}
 	if err := ValidateHours(25); err == nil {
 		t.Fatal("expected 25 to fail")

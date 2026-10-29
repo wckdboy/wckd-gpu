@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wckdboy/wckd-gpu/cli/internal/config"
+	"github.com/wckdboy/wckd-gpu/cli/internal/offer"
 	"github.com/wckdboy/wckd-gpu/cli/internal/preset"
 	"github.com/wckdboy/wckd-gpu/cli/internal/runpod"
 	"github.com/wckdboy/wckd-gpu/cli/internal/session"
@@ -16,13 +17,14 @@ import (
 
 func (a *App) startCmd() *cobra.Command {
 	var (
-		hours     float64
-		projectID string
-		presetID  string
-		offerID   string
-		dryRun    bool
-		noSweeper bool
-		asJSON    bool
+		hours          float64
+		projectID      string
+		presetID       string
+		offerID        string
+		dryRun         bool
+		noSweeper      bool
+		asJSON         bool
+		requireRegions string
 	)
 	cmd := &cobra.Command{
 		Use:   "start",
@@ -68,6 +70,14 @@ func (a *App) startCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			override, err := requireOverride(cmd, requireRegions)
+			if err != nil {
+				return err
+			}
+			policy, err := offer.ResolveRequire(p.Spec.Constraints.RequireRegions, override)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			if ctx == nil {
 				ctx = cmdContext()
@@ -86,22 +96,27 @@ func (a *App) startCmd() *cobra.Command {
 					SecretKey: d.cfg.S3.SecretKey,
 					Region:    d.cfg.S3.Region,
 				},
+				RequireRegions: override,
 			}
 			if dryRun {
-				offers, err := d.svc.Candidates(ctx, p, offerID)
+				offers, err := d.svc.CandidatesOverride(ctx, p, offerID, override)
 				if err != nil {
 					return err
 				}
 				chosen := offers[0]
 				if asJSON {
 					return writeJSON(a.stdout(), map[string]any{
-						"dry_run":      true,
-						"offer":        chosen,
-						"estimate_usd": session.Estimate(chosen.USDPerHour, hoursVal),
-						"image":        req.Image,
+						"dry_run":         true,
+						"offer":           chosen,
+						"estimate_usd":    session.Estimate(chosen.USDPerHour, hoursVal),
+						"image":           req.Image,
+						"require_regions": policy.Regions,
+						"require_secure":  policy.Secure,
+						"cost_basis":      session.CostBasisEstimate,
 					})
 				}
 				fmt.Fprintln(a.stdout(), "dry_run: true")
+				fmt.Fprintf(a.stdout(), "require_regions: %s\n", policy.Label())
 				fmt.Fprintf(a.stdout(), "offer: %s\n", chosen.ID)
 				fmt.Fprintf(a.stdout(), "gpu: %s %dGB %s $%.3f/hr\n", chosen.Name, chosen.VRAMGB, chosen.Cloud, chosen.USDPerHour)
 				fmt.Fprintf(a.stdout(), "estimate_usd: %.4f\n", session.Estimate(chosen.USDPerHour, hoursVal))
@@ -141,6 +156,7 @@ func (a *App) startCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "rank and print the pick without creating a pod")
 	cmd.Flags().BoolVar(&noSweeper, "no-sweeper", false, "do not spawn the background deadline sweeper")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "print the session as JSON")
+	cmd.Flags().StringVar(&requireRegions, "require-regions", "", "hard region filter (default EU; EU-secure also requires Secure cloud; any disables)")
 	return cmd
 }
 

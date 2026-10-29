@@ -13,6 +13,8 @@ spec:
     gpu_families: ["5090", "4090", "L40S", "H100", "PRO6000"]
     reliability: any
     prefer_regions: ["EU"]
+    # Hard placement filter. "any" disables it. "EU-secure" also requires Secure cloud.
+    require_regions: ["EU"]
   runtime:
     # Public RunPod image so `wckd start` can place a pod before a custom
     # image exists. Stock /start.sh does not run this entrypoint. Build

@@ -42,35 +42,64 @@ type StartRequest struct {
 	Image     string
 	Ports     []vendor.NamedPort
 	Storage   StorageCreds
+	// RequireRegions, when non-nil, replaces the preset hard region filter
+	// for this call. An empty list clears it.
+	RequireRegions *[]string
 }
 
 // Ranked returns every offer that matches the preset, best first.
+// A preset that omits require_regions gets the EU hard filter.
 func (s *Service) Ranked(ctx context.Context, p preset.File) ([]offer.Offer, error) {
-	return s.Vendor.ListOffers(ctx, offer.Query{
-		WorkloadClass: p.Spec.WorkloadClass,
-		Constraints: offer.Constraints{
-			MinVRAMGB:     p.Spec.Constraints.MinVRAMGB,
-			GPUFamilies:   p.Spec.Constraints.GPUFamilies,
-			Reliability:   p.Spec.Constraints.Reliability,
-			PreferRegions: p.Spec.Constraints.PreferRegions,
-		},
-	})
+	return s.RankedOverride(ctx, p, nil)
+}
+
+// RankedOverride is Ranked with a per-request hard region filter.
+// A nil override uses the preset list, or EU when the preset omits it.
+func (s *Service) RankedOverride(ctx context.Context, p preset.File, require *[]string) ([]offer.Offer, error) {
+	q, err := offerQuery(p, require)
+	if err != nil {
+		return nil, err
+	}
+	return s.Vendor.ListOffers(ctx, q)
 }
 
 // Candidates returns the offers start would try, best first.
 // A locked offer id yields that offer only. Otherwise the result is capped
 // at the failover window (default 3).
 func (s *Service) Candidates(ctx context.Context, p preset.File, offerID string) ([]offer.Offer, error) {
-	offers, err := s.Ranked(ctx, p)
+	return s.CandidatesOverride(ctx, p, offerID, nil)
+}
+
+// CandidatesOverride is Candidates with a per-request hard region filter.
+func (s *Service) CandidatesOverride(ctx context.Context, p preset.File, offerID string, require *[]string) ([]offer.Offer, error) {
+	offers, err := s.RankedOverride(ctx, p, require)
 	if err != nil {
 		return nil, err
 	}
 	return selectOffers(offers, offerID, s.failover())
 }
 
+func offerQuery(p preset.File, require *[]string) (offer.Query, error) {
+	policy, err := offer.ResolveRequire(p.Spec.Constraints.RequireRegions, require)
+	if err != nil {
+		return offer.Query{}, err
+	}
+	return offer.Query{
+		WorkloadClass: p.Spec.WorkloadClass,
+		Constraints: offer.Constraints{
+			MinVRAMGB:      p.Spec.Constraints.MinVRAMGB,
+			GPUFamilies:    p.Spec.Constraints.GPUFamilies,
+			Reliability:    p.Spec.Constraints.Reliability,
+			PreferRegions:  p.Spec.Constraints.PreferRegions,
+			RequireRegions: policy.Regions,
+			RequireSecure:  policy.Secure,
+		},
+	}, nil
+}
+
 // Start provisions a pod and records the session locally and in S3.
 func (s *Service) Start(ctx context.Context, req StartRequest) (Session, error) {
-	candidates, err := s.Candidates(ctx, req.Preset, req.OfferID)
+	candidates, err := s.CandidatesOverride(ctx, req.Preset, req.OfferID, req.RequireRegions)
 	if err != nil {
 		return Session{}, err
 	}
