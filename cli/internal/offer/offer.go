@@ -281,21 +281,53 @@ func usableDataCenters(dcs []DataCenter) []DataCenter {
 	return out
 }
 
+// MatchesRegion reports whether a data-center id or name satisfies one
+// require_regions or prefer_regions token. The token must sit on a boundary:
+// "EU" matches "EU-RO-1" and "EU Romania", and does not match "EUR-IS-1".
+func MatchesRegion(id, name string, regions []string) bool {
+	return regionMatch(DataCenter{ID: id, Name: name}, regions)
+}
+
 func regionMatch(dc DataCenter, prefer []string) bool {
 	if len(prefer) == 0 {
 		return true
 	}
-	hay := strings.ToUpper(dc.ID + " " + dc.Name)
 	for _, p := range prefer {
 		p = strings.ToUpper(strings.TrimSpace(p))
 		if p == "" {
 			continue
 		}
-		if strings.Contains(hay, p) {
+		if tokenAtBoundary(dc.ID, p) || tokenAtBoundary(dc.Name, p) {
 			return true
 		}
 	}
 	return false
+}
+
+func tokenAtBoundary(hay, token string) bool {
+	hay = strings.ToUpper(hay)
+	if token == "" || hay == "" {
+		return false
+	}
+	for i := 0; i+len(token) <= len(hay); {
+		j := strings.Index(hay[i:], token)
+		if j < 0 {
+			return false
+		}
+		j += i
+		end := j + len(token)
+		before := j == 0 || !isAlnumByte(hay[j-1])
+		after := end == len(hay) || !isAlnumByte(hay[end])
+		if before && after {
+			return true
+		}
+		i = j + 1
+	}
+	return false
+}
+
+func isAlnumByte(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
 func matchFamily(gpu string, allow []string) (string, bool) {

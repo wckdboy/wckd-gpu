@@ -28,6 +28,11 @@ import (
 
 const confirmMessage = "confirmation required; resend with confirm true to rent the chosen offer. Nothing was created."
 
+// provisionTimeout bounds a confirmed create after the HTTP request context
+// is detached. It covers the RunPod client's retries (3 attempts, 60s each)
+// without staying open if the provider never answers.
+const provisionTimeout = 4 * time.Minute
+
 // Server is one local rental API process.
 type Server struct {
 	Addr             string
@@ -366,7 +371,12 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	sess, err := s.Service.Start(r.Context(), session.StartRequest{
+	// A gateway timeout or a dropped client must not cancel an in-flight
+	// create: RunPod may already have accepted the pod, and a failed session
+	// with no instance id is invisible to the sweeper.
+	provCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), provisionTimeout)
+	defer cancel()
+	sess, err := s.Service.Start(provCtx, session.StartRequest{
 		ProjectID:      body.ProjectID,
 		Preset:         p,
 		Hours:          body.Hours,

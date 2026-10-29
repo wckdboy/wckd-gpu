@@ -11,7 +11,7 @@
 | Threat | Mitigation |
 |--------|------------|
 | Stolen provider key from phone | Target: keys only in the control-plane vault; clients use a user session JWT. P1/P3: keys stay in the operator's `.env` or process environment for the CLI. The PWA and Tauri shell do not accept or persist them. |
-| Local `wckd serve` bearer or provider key leaked in a response or log | Loopback bind by default. Bearer lives in a mode-0600 key file, is compared in constant time, and is never printed. Responses and server logs scrub provider and S3 secrets. |
+| Local `wckd serve` bearer or provider key leaked in a response or log | Loopback bind by default. On Unix the bearer file is mode 0600 and refused if group or world can read it. Windows mode bits are not an ACL; this build does not set an owner-only DACL, so another local account can read the file if the directory ACL allows it. The key is compared in constant time and is never printed. Responses and server logs scrub provider and S3 secrets. |
 | Client webview stores provider or S3 keys | The UI has no secret fields. localStorage holds project ids, the `wckd` path, a config path, and a working directory. GPU actions in the browser wait on `HttpBridge`. |
 | Orphan GPU burn | Hard deadline + independent sweeper + push alert |
 | Public ComfyUI takeover | Tunnel + optional basic auth / token; no raw bind to 0.0.0.0 by default |

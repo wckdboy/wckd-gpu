@@ -188,6 +188,23 @@ func TestRequireSecureDropsCommunity(t *testing.T) {
 	}
 }
 
+func TestRegionTokenBoundary(t *testing.T) {
+	if !MatchesRegion("EU-RO-1", "EU Romania", []string{"EU"}) {
+		t.Fatal("EU-RO-1 should match EU")
+	}
+	if MatchesRegion("EUR-IS-1", "Europe Iceland", []string{"EU"}) {
+		t.Fatal("EUR-IS-1 should not match the EU token")
+	}
+	if MatchesRegion("US-KS-2", "US Kansas", []string{"EU"}) {
+		t.Fatal("US should not match EU")
+	}
+	c := Constraints{RequireRegions: []string{"EU"}, GPUFamilies: []string{"4090"}, MinVRAMGB: 24}
+	eur := quote("NVIDIA GeForce RTX 4090", "RTX 4090", 24, "community", 0.20, "EUR-IS-1", "HIGH")
+	if ranked := Rank([]Quote{eur}, c, "llm"); len(ranked) != 0 {
+		t.Fatalf("EUR-IS-1 survived the hard filter: %#v", ranked)
+	}
+}
+
 func TestRegionPolicyTokens(t *testing.T) {
 	def, err := ResolveRequire(nil, nil)
 	if err != nil {

@@ -161,3 +161,7 @@ The P1 CLI runs on the machine that holds the API keys (Linux and macOS are what
 ## Owner
 
 WCKD / BLXMP — self-host and SMB AI tooling.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 wckdboy.

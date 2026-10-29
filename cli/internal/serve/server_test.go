@@ -135,6 +135,64 @@ func TestCreateWithoutConfirmDoesNotProvision(t *testing.T) {
 	}
 }
 
+func TestConfirmedCreateSurvivesClientCancel(t *testing.T) {
+	h := newHarness(t, false)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	h.vendor.started = started
+	h.vendor.release = release
+	var releaseOnce sync.Once
+	unlock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unlock()
+
+	base, stop := h.start(t)
+	defer stop()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/rent/sessions", strings.NewReader(h.createJSON(true)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+h.key)
+	req.Header.Set("Content-Type", "application/json")
+	done := make(chan struct{})
+	go func() {
+		client := &http.Client{Timeout: 10 * time.Second}
+		_, _ = client.Do(req)
+		close(done)
+	}()
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("provision did not start")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("canceled client did not return")
+	}
+	unlock()
+
+	deadline := time.Now().Add(3 * time.Second)
+	var last session.Session
+	for time.Now().Before(deadline) {
+		list, err := session.NewStore(h.dir).List()
+		if err == nil && len(list) == 1 {
+			last = list[0]
+			if last.Phase == session.PhaseHydrating && last.InstanceID != "" {
+				return
+			}
+			if last.Phase == session.PhaseFailed {
+				t.Fatalf("create followed the canceled request: %+v", last)
+			}
+		}
+		time.Sleep(15 * time.Millisecond)
+	}
+	t.Fatalf("session after cancel: %+v", last)
+}
+
 func TestStopPreservesDrainGate(t *testing.T) {
 	h := newHarness(t, false)
 	base, stop := h.start(t)
@@ -584,6 +642,9 @@ type fakeVendor struct {
 	failMsg    string
 	created    []vendor.ProvisionRequest
 	terminated []string
+	started    chan struct{}
+	release    chan struct{}
+	startOnce  sync.Once
 }
 
 func (f *fakeVendor) ListOffers(_ context.Context, q offer.Query) ([]offer.Offer, error) {
@@ -596,7 +657,17 @@ func (f *fakeVendor) ListOffers(_ context.Context, q offer.Query) ([]offer.Offer
 	return out, nil
 }
 
-func (f *fakeVendor) Provision(_ context.Context, req vendor.ProvisionRequest) (vendor.Instance, error) {
+func (f *fakeVendor) Provision(ctx context.Context, req vendor.ProvisionRequest) (vendor.Instance, error) {
+	if f.started != nil {
+		f.startOnce.Do(func() { close(f.started) })
+	}
+	if f.release != nil {
+		select {
+		case <-f.release:
+		case <-ctx.Done():
+			return vendor.Instance{}, ctx.Err()
+		}
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.created = append(f.created, req)

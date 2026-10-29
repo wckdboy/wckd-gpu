@@ -86,12 +86,15 @@ does not spawn a second sweeper process.`,
 			} else {
 				fmt.Fprintf(a.stdout(), "key_file: %s\n", keyFile)
 			}
-			ctx := cmd.Context()
-			if ctx == nil {
-				var stop context.CancelFunc
-				ctx, stop = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-				defer stop()
+			parent := cmd.Context()
+			if parent == nil {
+				parent = context.Background()
 			}
+			// Cobra's Execute sets a non-nil context, so a nil check never
+			// installs the handler on the normal path. Go's default for
+			// SIGINT/SIGTERM then kills the process before Shutdown runs.
+			ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+			defer stop()
 			ready := make(chan struct{})
 			srv := &serve.Server{
 				Addr:             listen,

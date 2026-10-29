@@ -33,7 +33,7 @@ sweep_interval: 15s
 | `--api-key-file`, `WCKD_SERVE_KEY_FILE` | `$WCKD_STATE_DIR/serve.key` | Path to the bearer. There is no flag that passes the key itself. |
 | `--sweep-interval`, `WCKD_SWEEP_INTERVAL` | `15s` | In-process deadline sweep. |
 
-A group- or world-readable key file, or a symlink, refuses to start. The file is read, not taken from argv, so the key is not in the process list.
+A group- or world-readable key file, or a symlink, refuses to start on Unix. Windows mode bits are not an ACL, and this binary does not set an owner-only DACL. The file is read, not taken from argv, so the key is not in the process list.
 
 Invincible should launch it the same way it launches other engines: loopback port chosen by the node, `--api-key-file` pointing at a mode-0600 file the node created, clean environment except what the runtime needs. A request without the bearer must return 401 before the model is served.
 
@@ -63,9 +63,11 @@ HTTP 401. The body does not echo the header or the key.
 | `EU` | Same hard filter. Community and Secure are both allowed, subject to the preset's `reliability`. |
 | `EU-secure` | EU data centers and Secure cloud only. The `-secure` suffix is the mode; the prefix is the region token. |
 | `any` or `*` | Disables the hard filter. Must be the only token. |
-| other strings | Substring match against the data center id and name, same as `prefer_regions`. |
+| other strings | Boundary match against the data center id and name, same as `prefer_regions`. `EU` matches `EU-RO-1` and `EU Romania`, not `EUR-IS-1`. |
 
 A quote that has both an EU and a US data center keeps only the EU ids, and provision is pinned to those ids. A quote with no data center list cannot satisfy the filter and is dropped.
+
+`dataCenterIds` is a preference on RunPod, not a hard placement constraint. After create, if `require_regions` is set and the returned data center is empty or outside that set, the pod is terminated and the next candidate is tried. Soft `prefer_regions` is not checked again after placement.
 
 The CLI flags `--require-regions` on `offers` and `start` override the preset for that command. The API accepts the same override as a query parameter (offers) or a JSON field (create). An explicit empty list clears the filter.
 
